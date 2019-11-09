@@ -2,6 +2,8 @@ package Client;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.security.*;
+import java.util.ArrayList;
+import java.util.List;
 
 import Interfaces.BulletinBoard;
 
@@ -50,8 +52,8 @@ public class Client {
 			SendThread st = new SendThread(this);
 			st.start();
 			
-			//ReadThread rt = new ReadThread(impl, userName);
-			//rt.start();
+			ReceiveThread rt = new ReceiveThread(this);
+			rt.start();
 			
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -74,6 +76,28 @@ public class Client {
 
 	protected void sendAB(String m){
 		// TODO: Implementatie van sendAB function (zie figure 2 paper)
+		//zie generatePart1Message ==> van alle delen bytearray maken ==> samen in ArrayList steken ==> alles uit arraylist terug in bytearray steken samen met de tekens nodig om de verschillende delen te kunnen onderscheiden!!!
+		List<Byte> byteList = new ArrayList<>();
+		byte[] msg = m.getBytes();
+		for(int i = 0 ; i < msg.length ; i++) {
+			byteList.add(msg[i]);
+		}
+		byte[] indexABBytes = Integer.toString(indexAB).getBytes();
+		for(int i = 0 ; i < indexABBytes.length ; i++) {
+			byteList.add(indexABBytes[i]);
+		}
+		for(int i = 0 ; i < tagAB.length ; i++) {
+			byteList.add(tagAB[i]);
+		}
+		byte[] message = new byte[byteList.size()];
+
+		//byte[] msg = m.getBytes() + "$@_@$" + indexAB + "$@_@$" + tagAB;
+		//System.out.println(msg);
+	}
+
+	public String receiveAB() {
+		// TODO: Implementatie van receiveAB function (zie figure 2 paper)
+		return null;
 	}
 
 	public static void main(String[] args) {

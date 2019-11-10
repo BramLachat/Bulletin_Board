@@ -9,6 +9,16 @@ public class ReceiveThread extends Thread {
     }
 
     public void run(){
-        String msg = c.receiveAB();
+        while(true) {
+            try {
+                String msg = c.receiveBA();
+                if(msg != null) System.out.print("ReceiveThread: msg: " + msg + " // ");
+                else{
+                    System.out.print("null // ");
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

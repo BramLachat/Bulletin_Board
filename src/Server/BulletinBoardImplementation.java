@@ -4,6 +4,7 @@ import java.rmi.server.UnicastRemoteObject;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 
@@ -12,7 +13,7 @@ import Interfaces.BulletinBoard;
 public class BulletinBoardImplementation extends UnicastRemoteObject implements BulletinBoard{
 
 	private int mailboxSize = 25;
-	private List<HashMap<byte[], byte[]>> mailbox;
+	private List<HashMap<String, byte[]>> mailbox;
 
 	public BulletinBoardImplementation() throws RemoteException {
 		// De 25 plaatsen zijn random gekozen
@@ -24,16 +25,17 @@ public class BulletinBoardImplementation extends UnicastRemoteObject implements 
 
 	@Override
 	public void add(int index, byte[] value, byte[] tag) throws RemoteException {
-		HashMap<byte[], byte[]> cell = mailbox.get(index);
-		cell.put(tag, value);
+		HashMap<String, byte[]> cell = mailbox.get(index);
+		cell.put(Base64.getEncoder().encodeToString(tag), value);
 	}
 
 	@Override
 	public byte[] get(int index, byte[] tag) throws RemoteException {
-		HashMap<byte[], byte[]> cell = mailbox.get(index);
+		HashMap<String, byte[]> cell = mailbox.get(index);
 		byte[] value = null;
 		try {
-			value = cell.remove(generateHash(tag));
+			byte[] hastTag = generateHash(tag);
+			value = cell.remove(Base64.getEncoder().encodeToString(hastTag));
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}

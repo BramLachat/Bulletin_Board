@@ -15,6 +15,7 @@ public class SendThread extends Thread {
     }
 
     public void run() {
+        System.out.println("Geef een bericht in: ");
         String msg = scan.nextLine();
         c.sendAB(msg);
     }

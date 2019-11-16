@@ -25,9 +25,12 @@ public class Client {
 	private static SecureRandom secureRandomGenerator;
 	private BulletinBoard bb;
 	private List<Byte> seperatorByteList;
+	private String name;
 	
 	public Client(){
 		Scanner scan = new Scanner(System.in);
+		System.out.println("Geef gebruikersnaam in:");
+		name = scan.nextLine();
 		byte[] separatorByte = "#§_§#".getBytes();
 		seperatorByteList = new ArrayList<>();
 		for(int i = 0 ; i < separatorByte.length ; i++){
@@ -163,6 +166,10 @@ public class Client {
 			e.printStackTrace();
 		}
 		return res;
+	}
+
+	public String getName() {
+		return name;
 	}
 
 	public static void main(String[] args) {

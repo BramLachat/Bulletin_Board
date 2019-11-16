@@ -15,8 +15,18 @@ public class SendThread extends Thread {
     }
 
     public void run() {
-        System.out.println("Geef een bericht in: ");
-        String msg = scan.nextLine();
-        c.sendAB(msg);
+        boolean exit = false;
+        while(!exit){
+            System.out.println("Geef een bericht in: ");
+            String msg = scan.nextLine();
+            if(msg.compareToIgnoreCase("exit") == 0) {
+                exit = true;
+                c.sendAB(c.getName() + " heeft de chat verlaten!");
+                System.out.println("U heeft de chat verlaten!");
+            }
+            else {
+                c.sendAB(msg);
+            }
+        }
     }
 }

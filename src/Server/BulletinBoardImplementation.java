@@ -27,6 +27,7 @@ public class BulletinBoardImplementation extends UnicastRemoteObject implements 
 	public void add(int index, byte[] value, byte[] tag) throws RemoteException {
 		HashMap<String, byte[]> cell = mailbox.get(index);
 		cell.put(Base64.getEncoder().encodeToString(tag), value);
+		System.out.println("added index: " + index + " // tag: " + Base64.getEncoder().encodeToString(tag));
 	}
 
 	@Override
@@ -35,6 +36,7 @@ public class BulletinBoardImplementation extends UnicastRemoteObject implements 
 		byte[] value = null;
 		try {
 			byte[] hastTag = generateHash(tag);
+			System.out.println("get index: " + index + " // tag: " + Base64.getEncoder().encodeToString(hastTag));
 			value = cell.remove(Base64.getEncoder().encodeToString(hastTag));
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();

@@ -2,3 +2,6 @@
 *.class
 .classpath
 .project
+out/production/Chatbox_Workspace/META-INF/Chatbox_Workspace.kotlin_module
+.xml
+.iml

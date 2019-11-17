@@ -13,6 +13,6 @@ Privately (and unlikably) exchanging messages using a public bulletin board
   - Start Client: `java Client.Client`
   
 ### 3) TODO:
-  - Key Derivation Function
+  - Key Derivation Function (OK)
   - Bump implementatie
   - Anonymising network???

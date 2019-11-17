@@ -16,8 +16,8 @@ public class SendThread extends Thread {
 
     public void run() {
         boolean exit = false;
+        System.out.println("Chatbox opgestart!");
         while(!exit){
-            System.out.println("Geef een bericht in: ");
             String msg = scan.nextLine();
             if(msg.compareToIgnoreCase("exit") == 0) {
                 exit = true;

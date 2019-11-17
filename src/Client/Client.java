@@ -3,6 +3,8 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.security.*;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.KeySpec;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -11,6 +13,7 @@ import java.util.Scanner;
 import Interfaces.BulletinBoard;
 
 import javax.crypto.*;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
 
@@ -24,7 +27,8 @@ public class Client {
 	private byte[] tagBA;
 	private static SecureRandom secureRandomGenerator;
 	private BulletinBoard bb;
-	private List<Byte> seperatorByteList;
+	private String separator;
+	//private List<Byte> seperatorByteList;
 	private String name;
 	private Scanner scan;
 	
@@ -32,11 +36,12 @@ public class Client {
 		scan = new Scanner(System.in);
 		System.out.println("Geef gebruikersnaam in:");
 		name = scan.nextLine();
-		byte[] separatorByte = "#§_§#".getBytes();
+		separator = "#§_§#";
+		/*byte[] separatorByte = "#§_§#".getBytes();
 		seperatorByteList = new ArrayList<>();
 		for(int i = 0 ; i < separatorByte.length ; i++){
 			seperatorByteList.add(separatorByte[i]);
-		}
+		}*/
 		try {
 			secureRandomGenerator = SecureRandom.getInstance("SHA1PRNG", "SUN");
 			// 24 is willekeurig gekozen in overeenkomst met lengte van de List in BulletinBoardImplementation
@@ -50,7 +55,7 @@ public class Client {
 			indexBA = Integer.parseInt(scan.nextLine());
 			System.out.println("Bump: Geef tagBA in: ");
 			tagBA = Base64.getDecoder().decode(scan.nextLine());
-			tagBA = new String(tagBA).getBytes();
+			//tagBA = new String(tagBA).getBytes();
 			System.out.println("Bump: Geef symmetricKeyBA in: ");
 			String symmetricKey = scan.nextLine();
 			symmetricKeyBA = new SecretKeySpec(Base64.getDecoder().decode(symmetricKey), 0, Base64.getDecoder().decode(symmetricKey).length, "AES");
@@ -88,8 +93,24 @@ public class Client {
 		}
 	}
 
-	protected void keyDerivationFunction(SecretKey key){
-
+	// https://docs.oracle.com/javase/7/docs/technotes/guides/security/crypto/CryptoSpec.html#PBEEx (Using Password-Based Encryption)
+	// https://www.baeldung.com/java-password-hashing (alternatief met salt, aantal iteraties en key lengte --> 5.2. Implementing PBKDF2 in Java: PBKDF = Password Based Key Derivation Function)
+	// If you're deriving a key from a master key, as opposed to deriving a key from a password, then you should use a key derivation function such as HKDF,
+	// not a password-based key derivation function such as PBKDF2. That's not insecure per se, but it's massively inefficient.
+	// (https://stackoverflow.com/questions/4513433/deriving-a-secret-from-a-master-key-using-jce-jca)
+	protected SecretKey keyDerivationFunction(SecretKey key){
+		KeySpec spec = new PBEKeySpec(Base64.getEncoder().encodeToString(key.getEncoded()).toCharArray());
+		SecretKey sk = null;
+		SecretKeyFactory factory = null;
+		try {
+			factory = SecretKeyFactory.getInstance("PBEWithHmacSHA256AndAES_256"); // Password Based Encryption (PBE)
+			sk = factory.generateSecret(spec);
+			byte[] hashKey = hashFunction(sk.getEncoded()); // Nodig omdat nieuwe key (sk) anders langer is dan de oude
+			sk = new SecretKeySpec(hashKey, 0, hashKey.length, "AES");
+		} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+			e.printStackTrace();
+		}
+		return sk;
 	}
 
 	protected byte[] hashFunction(byte[] tag) {
@@ -102,27 +123,31 @@ public class Client {
 		return digest.digest(tag);
 	}
 
-	protected synchronized void sendAB(String m){
+	protected void sendAB(String m){
 		// Implementatie van sendAB function (zie figure 2 paper)
 		int nextIndexAB = secureRandomGenerator.nextInt(24);
 		byte[] nextTagAB = secureRandomGenerator.generateSeed(256);
 		byte[] value = createMessage(m, nextIndexAB, nextTagAB);
 		try {
 			Cipher cipher = Cipher.getInstance("AES");
+			//System.out.println("Gebruikte sleutel: " + Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
 			cipher.init(Cipher.ENCRYPT_MODE, symmetricKeyAB);
 			byte[] valueEncrypted = cipher.doFinal(value);
-			byte[] hastTagAB = hashFunction(new String(tagAB).getBytes());
+			//byte[] hastTagAB = hashFunction(new String(tagAB).getBytes());
+			byte[] hastTagAB = hashFunction(tagAB);
 			bb.add(indexAB, valueEncrypted, hastTagAB);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		indexAB = nextIndexAB;
 		tagAB = nextTagAB;
-		keyDerivationFunction(symmetricKeyAB);
+		symmetricKeyAB = keyDerivationFunction(symmetricKeyAB);
 	}
 
 	private byte[] createMessage(String m, int nextIndexAB, byte[] nextTagAB) {
-		List<Byte> byteList = new ArrayList<>();
+		String message = m + separator + nextIndexAB + separator + Base64.getEncoder().encodeToString(nextTagAB);
+		return message.getBytes();
+		/*List<Byte> byteList = new ArrayList<>();
 		byte[] mBytes = m.getBytes();
 		for(int i = 0 ; i < mBytes.length ; i++) {
 			byteList.add(mBytes[i]);
@@ -141,13 +166,11 @@ public class Client {
 		for(int i = 0 ; i < byteList.size() ; i++) {
 			message[i] = byteList.get(i);
 		}
-		//System.out.println("boodschap: " + new String(message));
-		return message;
+		return message;*/
 	}
 
-	protected synchronized String receiveBA() throws InterruptedException {
+	protected String receiveBA() throws InterruptedException {
 		// Implementatie van receiveAB function (zie figure 2 paper)
-		//System.out.print("sleeping\t");
 		Thread.sleep(3000);
 		String res = null;
 		byte[] value = null;
@@ -160,8 +183,8 @@ public class Client {
 				byte[] decryptedValue = cipher.doFinal(value);
 				String[] message = new String(decryptedValue).split("#§_§#");
 				indexBA = Integer.parseInt(message[1]);
-				tagBA = message[2].getBytes();
-				keyDerivationFunction(symmetricKeyBA);
+				tagBA = Base64.getDecoder().decode(message[2]);
+				symmetricKeyBA = keyDerivationFunction(symmetricKeyBA);
 				res = message[0];
 				/*if(message[2].compareTo(new String(tagAB)) == 0){
 					System.out.println("TRUE");

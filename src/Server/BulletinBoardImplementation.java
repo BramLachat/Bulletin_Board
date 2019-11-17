@@ -24,14 +24,14 @@ public class BulletinBoardImplementation extends UnicastRemoteObject implements 
 	}
 
 	@Override
-	public void add(int index, byte[] value, byte[] tag) throws RemoteException {
+	public synchronized void add(int index, byte[] value, byte[] tag) throws RemoteException {
 		HashMap<String, byte[]> cell = mailbox.get(index);
 		cell.put(Base64.getEncoder().encodeToString(tag), value);
 		System.out.println("added index: " + index + " // tag: " + Base64.getEncoder().encodeToString(tag));
 	}
 
 	@Override
-	public byte[] get(int index, byte[] tag) throws RemoteException {
+	public synchronized byte[] get(int index, byte[] tag) throws RemoteException {
 		HashMap<String, byte[]> cell = mailbox.get(index);
 		byte[] value = null;
 		try {

@@ -48,4 +48,8 @@ public class BulletinBoardImplementation extends UnicastRemoteObject implements 
 		MessageDigest digest = MessageDigest.getInstance("SHA-256");
 		return digest.digest(tag);
 	}
+
+	public int getMailboxSize() {
+		return mailboxSize;
+	}
 }

@@ -26,9 +26,10 @@ public class Client {
 	private BulletinBoard bb;
 	private List<Byte> seperatorByteList;
 	private String name;
+	private Scanner scan;
 	
 	public Client(){
-		Scanner scan = new Scanner(System.in);
+		scan = new Scanner(System.in);
 		System.out.println("Geef gebruikersnaam in:");
 		name = scan.nextLine();
 		byte[] separatorByte = "#§_§#".getBytes();
@@ -49,6 +50,7 @@ public class Client {
 			indexBA = Integer.parseInt(scan.nextLine());
 			System.out.println("Bump: Geef tagBA in: ");
 			tagBA = Base64.getDecoder().decode(scan.nextLine());
+			tagBA = new String(tagBA).getBytes();
 			System.out.println("Bump: Geef symmetricKeyBA in: ");
 			String symmetricKey = scan.nextLine();
 			symmetricKeyBA = new SecretKeySpec(Base64.getDecoder().decode(symmetricKey), 0, Base64.getDecoder().decode(symmetricKey).length, "AES");
@@ -66,10 +68,18 @@ public class Client {
 
 			// search for CounterService
 			bb = (BulletinBoard) myRegistry.lookup("ChatService");
-
+			/*System.out.println("Sender/Receiver?");
+			String sendOrReceive = scan.nextLine();
+			switch (sendOrReceive) {
+				case "Sender": SendThread st = new SendThread(this);
+					st.start();
+					break;
+				case "Receiver": ReceiveThread rt = new ReceiveThread(this);
+					rt.start();
+					break;
+			}*/
 			SendThread st = new SendThread(this);
 			st.start();
-			
 			ReceiveThread rt = new ReceiveThread(this);
 			rt.start();
 			
@@ -101,7 +111,7 @@ public class Client {
 			Cipher cipher = Cipher.getInstance("AES");
 			cipher.init(Cipher.ENCRYPT_MODE, symmetricKeyAB);
 			byte[] valueEncrypted = cipher.doFinal(value);
-			byte[] hastTagAB = hashFunction(tagAB);
+			byte[] hastTagAB = hashFunction(new String(tagAB).getBytes());
 			bb.add(indexAB, valueEncrypted, hastTagAB);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -123,6 +133,7 @@ public class Client {
 			byteList.add(nextIndexABBytes[i]);
 		}
 		byteList.addAll(seperatorByteList);
+		System.out.println("nextTagAB.length: " + nextTagAB.length);
 		for(int i = 0 ; i < nextTagAB.length ; i++) {
 			byteList.add(nextTagAB[i]);
 		}

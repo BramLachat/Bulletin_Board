@@ -11,3 +11,8 @@ Privately (and unlikably) exchanging messages using a public bulletin board
   - Open CLI
   - Start server: `java Server.Server`
   - Start Client: `java Client.Client`
+  
+### 3) TODO:
+  - Key Derivation Function
+  - Bump implementatie
+  - Anonymising network???

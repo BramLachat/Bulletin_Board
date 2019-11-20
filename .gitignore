@@ -5,3 +5,6 @@
 out/production/Chatbox_Workspace/META-INF/Chatbox_Workspace.kotlin_module
 .xml
 .iml
+.idea/vcs.xml
+*.iml
+*.xml

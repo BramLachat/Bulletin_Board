@@ -15,6 +15,10 @@ public class BulletinBoardImplementation extends UnicastRemoteObject implements 
 	private int mailboxSize = 25;
 	private List<HashMap<String, byte[]>> mailbox;
 
+	public List<HashMap<String, byte[]>> getMailbox() {
+		return mailbox;
+	}
+
 	public BulletinBoardImplementation() throws RemoteException {
 		// De 25 plaatsen zijn random gekozen
 		mailbox = new ArrayList<>(mailboxSize);

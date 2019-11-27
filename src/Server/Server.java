@@ -17,12 +17,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class Server extends Application {
+public class Server{ //extends Application {
 
 	static BulletinBoardImplementation bulletinBoardImplementation;
-	static javafx.scene.control.ListView listView;
-	List<Integer> messagesInMailbox = new ArrayList<>(25);
-	static ObservableList<Integer> observableList;
 
 	public static void main(String[] args) {
 		Server main = new Server();
@@ -33,17 +30,8 @@ public class Server extends Application {
 		}
 		main.startServer();
 
-		launch(args);
-
-		while(true){
-			int i=0;
-			for(HashMap<String, byte[]> map : bulletinBoardImplementation.getMailbox()){
-				if(observableList.get(i)!=map.size()){
-					observableList.set(i,map.size());
-				}
-				i++;
-			}
-		}
+		//javaFX applicatie oproepen vanuit de bulletinboard klasse
+		bulletinBoardImplementation.start(args);
 	}
 	
 	private void startServer() {
@@ -58,24 +46,19 @@ public class Server extends Application {
 		System.out.println("Server is ready");
 	}
 
-	@Override
+	/*@Override
 	public void start(Stage primaryStage) throws Exception {
 		primaryStage.setTitle("Chatbox");
 		StackPane root = new StackPane();
 		primaryStage.setScene(new Scene(root,800,600));
 
-		messagesInMailbox = new ArrayList<>(25);
-
-		for (int i = 0; i < 25; i++) {
-			messagesInMailbox.add(0);
-		}
-
-		observableList = FXCollections.observableList(messagesInMailbox);
+		observableList = bulletinBoardImplementation.getWaardenMailboxes();
 
 		observableList.addListener(new ListChangeListener<Integer>() {
 			@Override
 			public void onChanged(Change<? extends Integer> c) {
-				System.out.println("verandering in lijst");
+				System.out.println("verandering");
+				System.out.println(bulletinBoardImplementation.getWaardenMailboxes().get(5));
 			}
 		});
 
@@ -84,5 +67,5 @@ public class Server extends Application {
 
 		root.getChildren().add(listView);
 		primaryStage.show();
-	}
+	}*/
 }

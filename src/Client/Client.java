@@ -1,4 +1,6 @@
 package Client;
+import java.io.IOException;
+import java.io.InputStream;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -9,31 +11,55 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import Interfaces.BulletinBoard;
+import javafx.application.Application;
+import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 
 import javax.crypto.*;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
+import javax.swing.*;
 
 
-public class Client {
+public class Client extends Application {
 
-	private SecretKey symmetricKeyAB;
-	private SecretKey symmetricKeyBA;
-	private int indexAB;
-	private byte[] tagAB;
-	private int indexBA;
-	private byte[] tagBA;
+	private static SecretKey symmetricKeyAB;
+	private static SecretKey symmetricKeyBA;
+	private static int indexAB;
+	private static byte[] tagAB;
+	private static int indexBA;
+	private static byte[] tagBA;
 	private static SecureRandom secureRandomGenerator;
 	private BulletinBoard bb;
-	private String separator;
+	private static String separator;
 	//private List<Byte> seperatorByteList;
-	private String name;
-	private Scanner scan;
-	
+	private static String name;
+	private static Scanner scan;
+
+	//GUI
+	private static TextArea textArea;
+
 	public Client(){
+		startClient();
+	}
+
+	public Client(int x){
 		scan = new Scanner(System.in);
+		//printToTextArea("Geef gebruikersnaam in:");
 		System.out.println("Geef gebruikersnaam in:");
 		name = scan.nextLine();
 		separator = "#§_§#";
@@ -65,7 +91,59 @@ public class Client {
 			e.printStackTrace();
 		}
 	}
-	
+
+	public void printToTextArea(String message){
+		//VOOR THREADS -> HIER NAAR TEXT AREA SCHRIJVEN EN DIT IN THREAD SHCRIJVEN IPV SOUT IN THREAD
+		textArea.setText(textArea.getText()+"/r/n"+message);
+		System.out.println("hallo" + "/r/n" + "tis gelukt");
+	}
+
+	@Override
+	public void start(Stage primaryStage) throws Exception {
+		primaryStage.setTitle("Chatbox van "+name);
+		textArea = new TextArea();
+		TextField textField = new TextField();
+		TextField indexField = new TextField();
+
+		VBox vBox = new VBox(textArea,textField);
+		vBox.setSpacing(15);
+
+		BlockingQueue<Integer> stdInQueue = new LinkedBlockingQueue<>();
+		System.setIn(new InputStream() {
+
+			@Override
+			public int read() throws IOException {
+				try {
+					int c = stdInQueue.take().intValue();
+					return c;
+				} catch (InterruptedException exc) {
+					Thread.currentThread().interrupt();
+					return -1 ;
+				}
+			}
+		});
+
+		textField.setOnKeyPressed(new EventHandler<KeyEvent>() {
+			@Override
+			public void handle(KeyEvent event) {
+				if(event.getCode().equals(KeyCode.ENTER)) {
+
+					for (char c : textField.getText().toCharArray()) {
+						stdInQueue.add(new Integer(c));
+					}
+					stdInQueue.add(new Integer('\n'));
+					textField.clear();
+					indexField.setText(""+indexAB);
+
+				}
+			}
+		});
+
+		Scene scene = new Scene(vBox,800,800);
+		primaryStage.setScene(scene);
+		primaryStage.show();
+	}
+
 	private void startClient(){
 		try {
 			// fire to localhost port 1099
@@ -87,7 +165,7 @@ public class Client {
 			st.start();
 			ReceiveThread rt = new ReceiveThread(this);
 			rt.start();
-			
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -124,6 +202,7 @@ public class Client {
 	}
 
 	protected void sendAB(String m){
+		System.out.println("bericht verzonden");
 		// Implementatie van sendAB function (zie figure 2 paper)
 		int nextIndexAB = secureRandomGenerator.nextInt(24);
 		byte[] nextTagAB = secureRandomGenerator.generateSeed(256);
@@ -207,7 +286,43 @@ public class Client {
 	}
 
 	public static void main(String[] args) {
-		Client client = new Client();
-		client.startClient();
+		//Client client = new Client(5);
+
+		scan = new Scanner(System.in);
+		//printToTextArea("Geef gebruikersnaam in:");
+		System.out.println("Geef gebruikersnaam in:");
+		name = scan.nextLine();
+		separator = "#§_§#";
+		/*byte[] separatorByte = "#§_§#".getBytes();
+		seperatorByteList = new ArrayList<>();
+		for(int i = 0 ; i < separatorByte.length ; i++){
+			seperatorByteList.add(separatorByte[i]);
+		}*/
+		try {
+			secureRandomGenerator = SecureRandom.getInstance("SHA1PRNG", "SUN");
+			// 24 is willekeurig gekozen in overeenkomst met lengte van de List in BulletinBoardImplementation
+			indexAB = secureRandomGenerator.nextInt(24);
+			tagAB = secureRandomGenerator.generateSeed(256);
+			KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+			keyGenerator.init(256);
+			symmetricKeyAB = keyGenerator.generateKey();
+			System.out.println("indexAB: " + indexAB + "\n\n" + "tagAB: " + Base64.getEncoder().encodeToString(tagAB) + "\n\n" + "symmetricKeyAB: " + Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
+			System.out.println("Bump: Geef indexBA in: ");
+			indexBA = Integer.parseInt(scan.nextLine());
+			System.out.println("Bump: Geef tagBA in: ");
+			tagBA = Base64.getDecoder().decode(scan.nextLine());
+			//tagBA = new String(tagBA).getBytes();
+			System.out.println("Bump: Geef symmetricKeyBA in: ");
+			String symmetricKey = scan.nextLine();
+			symmetricKeyBA = new SecretKeySpec(Base64.getDecoder().decode(symmetricKey), 0, Base64.getDecoder().decode(symmetricKey).length, "AES");
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		} catch (NoSuchProviderException e) {
+			e.printStackTrace();
+		}
+
+		launch(args);
+
+		scan.close();
 	}
 }

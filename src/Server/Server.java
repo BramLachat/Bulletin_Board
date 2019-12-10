@@ -1,4 +1,5 @@
 package Server;
+import Client.Client;
 import Interfaces.BulletinBoard;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
@@ -30,8 +31,11 @@ public class Server{ //extends Application {
 		}
 		main.startServer();
 
+		//Client client1 = new Client(args);
+		//Client client2 = new Client(args);
+
 		//javaFX applicatie oproepen vanuit de bulletinboard klasse
-		bulletinBoardImplementation.start(args);
+		//bulletinBoardImplementation.start(args);
 	}
 	
 	private void startServer() {

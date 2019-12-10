@@ -14,7 +14,8 @@ public class ReceiveThread extends Thread {
             try {
                 String msg = c.receiveBA();
                 if(msg != null) {
-                    System.out.println("Antwoord: " + msg);
+                    //System.out.println("Antwoord: " + msg);
+                    c.printToTextArea("Antwoord: " + msg);
                     if(msg.endsWith("heeft de chat verlaten!")){
                         exit = true;
                     }

@@ -2,6 +2,7 @@ package Client;
 
 import Interfaces.BulletinBoard;
 
+import java.io.IOException;
 import java.rmi.RemoteException;
 import java.util.Scanner;
 
@@ -18,7 +19,19 @@ public class SendThread extends Thread {
         boolean exit = false;
         System.out.println("Chatbox opgestart!");
         while(!exit){
-            String msg = scan.nextLine();
+            //String msg = scan.nextLine();
+
+            String msg="";
+            try {
+                int i ;
+                while ((i = System.in.read()) != -1) {
+                    //i=System.in.read();
+                    msg = msg+((char)i);
+                }
+            } catch (IOException exc) {
+                exc.printStackTrace();
+            }
+
             if(msg.compareToIgnoreCase("exit") == 0) {
                 exit = true;
                 c.sendAB(c.getName() + " heeft de chat verlaten!");

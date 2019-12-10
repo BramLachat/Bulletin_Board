@@ -24,13 +24,9 @@ public class BulletinBoardImplementation extends UnicastRemoteObject implements 
 	private List<HashMap<String, byte[]>> mailbox;
 	private static ObservableList<Integer> waardenMailboxes;
 
-	public void start(String [] args){
+	/*public void start(String [] args){
 		Application.launch(InnerClassVoorJavaFX.class,args);
 	}
-	
-	/*public void setWaardenMailboxesTEST(){
-		waardenMailboxes.set(3,waardenMailboxes.get(3)+1);
-	}*/
 
 	public static class InnerClassVoorJavaFX extends Application{
 
@@ -55,7 +51,7 @@ public class BulletinBoardImplementation extends UnicastRemoteObject implements 
 			root.getChildren().add(listView);
 			primaryStage.show();
 		}
-	}
+	}*/
 
 
 	public List<HashMap<String, byte[]>> getMailbox() {

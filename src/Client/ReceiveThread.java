@@ -1,6 +1,6 @@
 package Client;
 
-public class ReceiveThread extends Thread {
+public class ReceiveThread implements Runnable {
 
     private Client c;
 
@@ -16,6 +16,7 @@ public class ReceiveThread extends Thread {
                 if(msg != null) {
                     //System.out.println("Antwoord: " + msg);
                     c.printToTextArea("Antwoord: " + msg);
+
                     if(msg.endsWith("heeft de chat verlaten!")){
                         exit = true;
                     }

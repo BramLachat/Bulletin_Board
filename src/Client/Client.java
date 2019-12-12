@@ -1,38 +1,29 @@
 package Client;
-import java.io.IOException;
-import java.io.InputStream;
+
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
-import java.util.ArrayList;
 import java.util.Base64;
-import java.util.List;
 import java.util.Scanner;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import Interfaces.BulletinBoard;
 import javafx.application.Application;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyEvent;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import javax.crypto.*;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
-import javax.swing.*;
 
 
 public class Client extends Application {
@@ -44,22 +35,35 @@ public class Client extends Application {
 	private static int indexBA;
 	private static byte[] tagBA;
 	private static SecureRandom secureRandomGenerator;
-	private BulletinBoard bb;
+	private static BulletinBoard bb;
 	private static String separator;
 	//private List<Byte> seperatorByteList;
 	private static String name;
 	private static Scanner scan;
 
+	private SendThread st;
+	private Thread rt;
+
 	//GUI
-	private static TextArea textArea;
+	@FXML private TextField sendMessages;
+	@FXML private TextArea receivedMessages = new TextArea();
+	private  ObservableList<String> messageList;
+	private Scene scene;
 
-	public Client(){
-		startClient();
-	}
+	/*public Client(){
+		messageList = FXCollections.observableArrayList();
+		messageList.addListener((ListChangeListener<String>) lsl -> {
+			for(String s : lsl.getList()) {
+				receivedMessages.appendText(s);
+			}
+		});
+	}*/
 
-	public Client(int x){
+	public Client(){}
+
+	@Override
+	public void start(Stage primaryStage) throws Exception {
 		scan = new Scanner(System.in);
-		//printToTextArea("Geef gebruikersnaam in:");
 		System.out.println("Geef gebruikersnaam in:");
 		name = scan.nextLine();
 		separator = "#§_§#";
@@ -69,39 +73,52 @@ public class Client extends Application {
 			seperatorByteList.add(separatorByte[i]);
 		}*/
 		try {
-			secureRandomGenerator = SecureRandom.getInstance("SHA1PRNG", "SUN");
+			secureRandomGenerator = new SecureRandom();
+			byte[] generatedPassword = secureRandomGenerator.generateSeed(32);
+			String passwordString = Base64.getEncoder().encodeToString(generatedPassword);
+			System.out.println("PASSWORD: " + passwordString);
+			secureRandomGenerator = new SecureRandom(generatedPassword);
+			byte[] salt = new byte[32];
+			secureRandomGenerator.nextBytes(salt);
+			indexAB = Math.abs(passwordString.hashCode()%25);
+			SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+			KeySpec keySpec = new PBEKeySpec(passwordString.toCharArray(), salt, 65536, 256);
+			SecretKey temp = factory.generateSecret(keySpec);
+			symmetricKeyAB = new SecretKeySpec(temp.getEncoded(), 0, temp.getEncoded().length,  "AES");
+			tagAB = generatedPassword;
+
 			// 24 is willekeurig gekozen in overeenkomst met lengte van de List in BulletinBoardImplementation
-			indexAB = secureRandomGenerator.nextInt(24);
-			tagAB = secureRandomGenerator.generateSeed(256);
-			KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-			keyGenerator.init(256);
-			symmetricKeyAB = keyGenerator.generateKey();
-			System.out.println("indexAB: " + indexAB + "\n\n" + "tagAB: " + Base64.getEncoder().encodeToString(tagAB) + "\n\n" + "symmetricKeyAB: " + Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
-			System.out.println("Bump: Geef indexBA in: ");
-			indexBA = Integer.parseInt(scan.nextLine());
-			System.out.println("Bump: Geef tagBA in: ");
-			tagBA = Base64.getDecoder().decode(scan.nextLine());
-			//tagBA = new String(tagBA).getBytes();
-			System.out.println("Bump: Geef symmetricKeyBA in: ");
-			String symmetricKey = scan.nextLine();
-			symmetricKeyBA = new SecretKeySpec(Base64.getDecoder().decode(symmetricKey), 0, Base64.getDecoder().decode(symmetricKey).length, "AES");
+			//indexAB = secureRandomGenerator.nextInt(24);
+			//tagAB = secureRandomGenerator.generateSeed(256);
+			//KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+			//keyGenerator.init(256);
+			//symmetricKeyAB = keyGenerator.generateKey();
+			//System.out.println("indexAB: " + indexAB + "\n\n" + "tagAB: " + Base64.getEncoder().encodeToString(tagAB) + "\n\n" + "symmetricKeyAB: " + Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
+			System.out.println("Bump: Geef passwoord in: ");
+			passwordString = scan.nextLine();
+			generatedPassword = Base64.getDecoder().decode(passwordString);
+			indexBA = Math.abs(passwordString.hashCode()%25);
+			tagBA = generatedPassword;
+			secureRandomGenerator = new SecureRandom(generatedPassword);
+			salt = new byte[32];
+			secureRandomGenerator.nextBytes(salt);
+			keySpec = new PBEKeySpec(passwordString.toCharArray(), salt, 65536, 256);
+			temp = factory.generateSecret(keySpec);
+			symmetricKeyBA = new SecretKeySpec(temp.getEncoded(), 0, temp.getEncoded().length,  "AES");
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();
-		} catch (NoSuchProviderException e) {
-			e.printStackTrace();
 		}
-	}
+		startClient();
 
-	public void printToTextArea(String message){
-		//VOOR THREADS -> HIER NAAR TEXT AREA SCHRIJVEN EN DIT IN THREAD SHCRIJVEN IPV SOUT IN THREAD
-		textArea.setText(textArea.getText()+"/r/n"+message);
-		System.out.println("hallo" + "/r/n" + "tis gelukt");
-	}
-
-	@Override
-	public void start(Stage primaryStage) throws Exception {
+		Parent root = FXMLLoader.load(getClass().getResource("Client.fxml"));
 		primaryStage.setTitle("Chatbox van "+name);
-		textArea = new TextArea();
+		scene = new Scene(root, 300, 275);
+		primaryStage.setScene(scene);
+		primaryStage.show();
+
+		rt = new Thread(new ReceiveThread(this));
+		rt.start();
+		/*textArea = new TextArea();
 		TextField textField = new TextField();
 		TextField indexField = new TextField();
 
@@ -140,8 +157,33 @@ public class Client extends Application {
 		});
 
 		Scene scene = new Scene(vBox,800,800);
-		primaryStage.setScene(scene);
-		primaryStage.show();
+		primaryStage.setScene(scene);*/
+	}
+
+	@FXML protected void handleSubmitButtonAction(ActionEvent event) {
+		System.out.println("Chatbox opgestart!");
+		//String msg = scan.nextLine();
+
+		String msg=sendMessages.getText();
+		sendMessages.clear();
+		/*try {
+			int i ;
+			while ((i = System.in.read()) != -1) {
+				//i=System.in.read();
+				msg = msg+((char)i);
+			}
+		} catch (IOException exc) {
+			exc.printStackTrace();
+		}*/
+
+		if(msg.compareToIgnoreCase("exit") == 0) {
+			sendAB(name + " heeft de chat verlaten!");
+			System.out.println("U heeft de chat verlaten!");
+		}
+		else {
+			sendAB(msg);
+			receivedMessages.appendText(msg + "\n");
+		}
 	}
 
 	private void startClient(){
@@ -161,10 +203,6 @@ public class Client extends Application {
 					rt.start();
 					break;
 			}*/
-			SendThread st = new SendThread(this);
-			st.start();
-			ReceiveThread rt = new ReceiveThread(this);
-			rt.start();
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -202,7 +240,7 @@ public class Client extends Application {
 	}
 
 	protected void sendAB(String m){
-		System.out.println("bericht verzonden");
+		//System.out.println("bericht verzonden");
 		// Implementatie van sendAB function (zie figure 2 paper)
 		int nextIndexAB = secureRandomGenerator.nextInt(24);
 		byte[] nextTagAB = secureRandomGenerator.generateSeed(256);
@@ -250,7 +288,7 @@ public class Client extends Application {
 
 	protected String receiveBA() throws InterruptedException {
 		// Implementatie van receiveAB function (zie figure 2 paper)
-		Thread.sleep(3000);
+		Thread.sleep(1000);
 		String res = null;
 		byte[] value = null;
 		try {
@@ -281,48 +319,19 @@ public class Client extends Application {
 		return res;
 	}
 
-	public String getName() {
-		return name;
+	public void printToTextArea(String msg){
+		System.out.println(msg);
+		//messageList.add(msg);
+		try {
+			TextArea ta = (TextArea) scene.lookup("#receivedMessages");
+			ta.appendText(msg + "\n");
+		}
+		catch (NullPointerException npe){
+			System.out.println("FOUT!!!");
+		}
 	}
 
 	public static void main(String[] args) {
-		//Client client = new Client(5);
-
-		scan = new Scanner(System.in);
-		//printToTextArea("Geef gebruikersnaam in:");
-		System.out.println("Geef gebruikersnaam in:");
-		name = scan.nextLine();
-		separator = "#§_§#";
-		/*byte[] separatorByte = "#§_§#".getBytes();
-		seperatorByteList = new ArrayList<>();
-		for(int i = 0 ; i < separatorByte.length ; i++){
-			seperatorByteList.add(separatorByte[i]);
-		}*/
-		try {
-			secureRandomGenerator = SecureRandom.getInstance("SHA1PRNG", "SUN");
-			// 24 is willekeurig gekozen in overeenkomst met lengte van de List in BulletinBoardImplementation
-			indexAB = secureRandomGenerator.nextInt(24);
-			tagAB = secureRandomGenerator.generateSeed(256);
-			KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-			keyGenerator.init(256);
-			symmetricKeyAB = keyGenerator.generateKey();
-			System.out.println("indexAB: " + indexAB + "\n\n" + "tagAB: " + Base64.getEncoder().encodeToString(tagAB) + "\n\n" + "symmetricKeyAB: " + Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
-			System.out.println("Bump: Geef indexBA in: ");
-			indexBA = Integer.parseInt(scan.nextLine());
-			System.out.println("Bump: Geef tagBA in: ");
-			tagBA = Base64.getDecoder().decode(scan.nextLine());
-			//tagBA = new String(tagBA).getBytes();
-			System.out.println("Bump: Geef symmetricKeyBA in: ");
-			String symmetricKey = scan.nextLine();
-			symmetricKeyBA = new SecretKeySpec(Base64.getDecoder().decode(symmetricKey), 0, Base64.getDecoder().decode(symmetricKey).length, "AES");
-		} catch (NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		} catch (NoSuchProviderException e) {
-			e.printStackTrace();
-		}
-
 		launch(args);
-
-		scan.close();
 	}
 }

@@ -37,6 +37,7 @@ public class TestMain {
         byte[] salt1 = new byte[8];
         byte[] salt2 = new byte[8];
 
+        // Salt ook met SecureRandom genereren aan de hand van wachtwoord?
         salt1[0] = 40;
         salt1[1] = 64;
         salt1[2] = 86;
@@ -61,7 +62,9 @@ public class TestMain {
         try{
 
             //ZELFDE INDEX OP WACHTWOORD
+            // SecureRandom secureRandomGenerator = new SecureRandom(wachtwoord1.getBytes());
             indexAB = wachtwoord1.hashCode()%25;
+            System.out.println("indexAB: " + indexAB);
             indexBA = wachtwoord2.hashCode()%25;
 
             if(indexAB == indexBA){
@@ -88,6 +91,12 @@ public class TestMain {
             }
 
             //ZELFDE TAGS PER WACHTWOORD
+
+            // BRAM
+            SecureRandom secureRandomGenerator = new SecureRandom(wachtwoord1.getBytes());
+            tagAB = secureRandomGenerator.generateSeed(256);
+
+            // WOUTER
             int deling = 256/wachtwoord1.length();
             String stringVoorByteArrayGegenereerdUitPaswoord1 = wachtwoord1;
             String stringVoorByteArrayGegenereerdUitPaswoord2 = wachtwoord2;

@@ -1,6 +1,8 @@
 package Client;
 
-public class ReceiveThread implements Runnable {
+import java.util.concurrent.atomic.AtomicBoolean;
+
+public class ReceiveThread extends Thread {
 
     private Client c;
 
@@ -9,20 +11,16 @@ public class ReceiveThread implements Runnable {
     }
 
     public void run(){
-        boolean exit = false;
-        while(!exit) {
+        boolean running = true;
+        while(running) {
             try {
                 String msg = c.receiveBA();
                 if(msg != null) {
                     //System.out.println("Antwoord: " + msg);
-                    c.printToTextArea("Antwoord: " + msg);
-
-                    if(msg.endsWith("heeft de chat verlaten!")){
-                        exit = true;
-                    }
+                    c.printToTextArea(c.getNameBA() + ": " + msg);
                 }
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                running = false;
             }
         }
     }

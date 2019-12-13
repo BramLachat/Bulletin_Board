@@ -6,20 +6,26 @@ import java.rmi.registry.Registry;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
-import java.util.Base64;
-import java.util.Scanner;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import Interfaces.BulletinBoard;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
+import javafx.util.Pair;
 
 import javax.crypto.*;
 import javax.crypto.spec.PBEKeySpec;
@@ -30,18 +36,18 @@ public class Client extends Application {
 
 	private static SecretKey symmetricKeyAB;
 	private static SecretKey symmetricKeyBA;
-	private static int indexAB;
+	private static int indexAB = -1;
 	private static byte[] tagAB;
-	private static int indexBA;
+	private static int indexBA = -1;
 	private static byte[] tagBA;
+	private static String nameBA;
 	private static SecureRandom secureRandomGenerator;
 	private static BulletinBoard bb;
-	private static String separator;
+	private static String separator = "#§_§#";
 	//private List<Byte> seperatorByteList;
 	private static String name;
 	private static Scanner scan;
 
-	private SendThread st;
 	private Thread rt;
 
 	//GUI
@@ -50,15 +56,6 @@ public class Client extends Application {
 	private  ObservableList<String> messageList;
 	private Scene scene;
 
-	/*public Client(){
-		messageList = FXCollections.observableArrayList();
-		messageList.addListener((ListChangeListener<String>) lsl -> {
-			for(String s : lsl.getList()) {
-				receivedMessages.appendText(s);
-			}
-		});
-	}*/
-
 	public Client(){}
 
 	@Override
@@ -66,58 +63,27 @@ public class Client extends Application {
 		scan = new Scanner(System.in);
 		System.out.println("Geef gebruikersnaam in:");
 		name = scan.nextLine();
-		separator = "#§_§#";
 		/*byte[] separatorByte = "#§_§#".getBytes();
 		seperatorByteList = new ArrayList<>();
 		for(int i = 0 ; i < separatorByte.length ; i++){
 			seperatorByteList.add(separatorByte[i]);
 		}*/
-		try {
-			secureRandomGenerator = new SecureRandom();
-			byte[] generatedPassword = secureRandomGenerator.generateSeed(32);
-			String passwordString = Base64.getEncoder().encodeToString(generatedPassword);
-			System.out.println("PASSWORD: " + passwordString);
-			secureRandomGenerator = new SecureRandom(generatedPassword);
-			byte[] salt = new byte[32];
-			secureRandomGenerator.nextBytes(salt);
-			indexAB = Math.abs(passwordString.hashCode()%25);
-			SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-			KeySpec keySpec = new PBEKeySpec(passwordString.toCharArray(), salt, 65536, 256);
-			SecretKey temp = factory.generateSecret(keySpec);
-			symmetricKeyAB = new SecretKeySpec(temp.getEncoded(), 0, temp.getEncoded().length,  "AES");
-			tagAB = generatedPassword;
-
-			// 24 is willekeurig gekozen in overeenkomst met lengte van de List in BulletinBoardImplementation
-			//indexAB = secureRandomGenerator.nextInt(24);
-			//tagAB = secureRandomGenerator.generateSeed(256);
-			//KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-			//keyGenerator.init(256);
-			//symmetricKeyAB = keyGenerator.generateKey();
-			//System.out.println("indexAB: " + indexAB + "\n\n" + "tagAB: " + Base64.getEncoder().encodeToString(tagAB) + "\n\n" + "symmetricKeyAB: " + Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
-			System.out.println("Bump: Geef passwoord in: ");
-			passwordString = scan.nextLine();
-			generatedPassword = Base64.getDecoder().decode(passwordString);
-			indexBA = Math.abs(passwordString.hashCode()%25);
-			tagBA = generatedPassword;
-			secureRandomGenerator = new SecureRandom(generatedPassword);
-			salt = new byte[32];
-			secureRandomGenerator.nextBytes(salt);
-			keySpec = new PBEKeySpec(passwordString.toCharArray(), salt, 65536, 256);
-			temp = factory.generateSecret(keySpec);
-			symmetricKeyBA = new SecretKeySpec(temp.getEncoded(), 0, temp.getEncoded().length,  "AES");
-		} catch (NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
 		startClient();
 
 		Parent root = FXMLLoader.load(getClass().getResource("Client.fxml"));
 		primaryStage.setTitle("Chatbox van "+name);
-		scene = new Scene(root, 300, 275);
+		scene = new Scene(root, 500, 500);
 		primaryStage.setScene(scene);
 		primaryStage.show();
 
-		rt = new Thread(new ReceiveThread(this));
+		// CHECKEN ALS ER AL CONTACTEN ZIJN
+		rt = new ReceiveThread(this);
 		rt.start();
+
+		// EXIT PROGRAM
+		primaryStage.setOnCloseRequest((WindowEvent event1) -> {
+			rt.interrupt();
+		});
 		/*textArea = new TextArea();
 		TextField textField = new TextField();
 		TextField indexField = new TextField();
@@ -161,29 +127,108 @@ public class Client extends Application {
 	}
 
 	@FXML protected void handleSubmitButtonAction(ActionEvent event) {
-		System.out.println("Chatbox opgestart!");
-		//String msg = scan.nextLine();
-
 		String msg=sendMessages.getText();
 		sendMessages.clear();
-		/*try {
-			int i ;
-			while ((i = System.in.read()) != -1) {
-				//i=System.in.read();
-				msg = msg+((char)i);
-			}
-		} catch (IOException exc) {
-			exc.printStackTrace();
-		}*/
+		sendAB(msg);
+		receivedMessages.appendText(msg + "\n");
+	}
 
-		if(msg.compareToIgnoreCase("exit") == 0) {
-			sendAB(name + " heeft de chat verlaten!");
-			System.out.println("U heeft de chat verlaten!");
-		}
-		else {
-			sendAB(msg);
-			receivedMessages.appendText(msg + "\n");
-		}
+	@FXML protected void handleSelectContactButtonAction(ActionEvent event) {
+
+	}
+
+	@FXML protected  void handleNewContactButtonAction(ActionEvent event){
+		// Create the custom dialog.
+		Dialog<List<String>> dialog = new Dialog<>();
+		dialog.setTitle("Login Dialog");
+		dialog.setHeaderText("Voeg een persoon toe");
+
+// Set the icon (must be included in the project).
+		//dialog.setGraphic(new ImageView(this.getClass().getResource("login.png").toString()));
+
+// Set the button types.
+		ButtonType loginButtonType = new ButtonType("Login", ButtonBar.ButtonData.OK_DONE);
+		dialog.getDialogPane().getButtonTypes().addAll(loginButtonType, ButtonType.CANCEL);
+
+// Create the username and password labels and fields.
+		GridPane grid = new GridPane();
+		grid.setHgap(10);
+		grid.setVgap(10);
+		grid.setPadding(new Insets(20, 150, 10, 10));
+
+		PasswordField password = new PasswordField();
+		password.setPromptText("Paswoord");
+		TextField username = new TextField();
+		username.setPromptText("Gebruikersnaam");
+		PasswordField userpassword = new PasswordField();
+		userpassword.setPromptText("Paswoord");
+
+		grid.add(new Label("Eigen paswoord:"), 0, 0);
+		grid.add(password, 1, 0);
+		grid.add(new Label("Gebruikersnaam:"), 0, 1);
+		grid.add(username, 1, 1);
+		grid.add(new Label("Gebruiker paswoord:"), 0, 2);
+		grid.add(userpassword, 1, 2);
+
+// Enable/Disable login button depending on whether a username was entered.
+		Node loginButton = dialog.getDialogPane().lookupButton(loginButtonType);
+		loginButton.setDisable(true);
+
+// Do some validation (using the Java 8 lambda syntax).
+		AtomicBoolean usernameEmpty = new AtomicBoolean(true);
+		AtomicBoolean passwordEmpty = new AtomicBoolean(true);
+		AtomicBoolean userpasswordEmpty = new AtomicBoolean(true);
+		username.textProperty().addListener((observable, oldValue, newValue) -> {
+			usernameEmpty.set(newValue.trim().isEmpty());
+			if(!usernameEmpty.get() && !userpasswordEmpty.get() && !passwordEmpty.get()){
+				loginButton.setDisable(false);
+			}
+			else{
+				loginButton.setDisable(true);
+			}
+		});
+		password.textProperty().addListener((observable, oldValue, newValue) -> {
+			passwordEmpty.set(newValue.trim().isEmpty());
+			if(!usernameEmpty.get() && !userpasswordEmpty.get() && !passwordEmpty.get()){
+				loginButton.setDisable(false);
+			}
+			else{
+				loginButton.setDisable(true);
+			}
+		});
+		userpassword.textProperty().addListener((observable, oldValue, newValue) -> {
+			userpasswordEmpty.set(newValue.trim().isEmpty());
+			if(!usernameEmpty.get() && !userpasswordEmpty.get() && !passwordEmpty.get()){
+				loginButton.setDisable(false);
+			}
+			else{
+				loginButton.setDisable(true);
+			}
+		});
+
+		dialog.getDialogPane().setContent(grid);
+
+// Request focus on the username field by default.
+		Platform.runLater(() -> username.requestFocus());
+
+// Convert the result to a username-password-pair when the login button is clicked.
+		dialog.setResultConverter(dialogButton -> {
+			if (dialogButton == loginButtonType) {
+				List<String> result = new ArrayList<String>();
+				result.add(password.getText());
+				result.add(username.getText());
+				result.add(userpassword.getText());
+				return result;
+			}
+			return null;
+		});
+
+		Optional<List<String>> result = dialog.showAndWait();
+
+		result.ifPresent(usernamePassword -> {
+			System.out.println("Eigen Paswoord=" + usernamePassword.get(0) + ", Gebruikersnaam=" + usernamePassword.get(1) + ", Gebruiker paswoord=" + usernamePassword.get(2));
+			addContact(usernamePassword.get(0), usernamePassword.get(1), usernamePassword.get(2));
+		});
 	}
 
 	private void startClient(){
@@ -193,17 +238,6 @@ public class Client extends Application {
 
 			// search for CounterService
 			bb = (BulletinBoard) myRegistry.lookup("ChatService");
-			/*System.out.println("Sender/Receiver?");
-			String sendOrReceive = scan.nextLine();
-			switch (sendOrReceive) {
-				case "Sender": SendThread st = new SendThread(this);
-					st.start();
-					break;
-				case "Receiver": ReceiveThread rt = new ReceiveThread(this);
-					rt.start();
-					break;
-			}*/
-
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -292,7 +326,9 @@ public class Client extends Application {
 		String res = null;
 		byte[] value = null;
 		try {
-			value = bb.get(indexBA, tagBA);
+			if(indexBA > -1 && tagBA != null && symmetricKeyBA != null){
+				value = bb.get(indexBA, tagBA);
+			}
 			if(value != null){
 				Cipher cipher = Cipher.getInstance("AES");
 				//cipher.init(Cipher.DECRYPT_MODE, symmetricKeyBA);
@@ -320,7 +356,7 @@ public class Client extends Application {
 	}
 
 	public void printToTextArea(String msg){
-		System.out.println(msg);
+		//System.out.println(msg);
 		//messageList.add(msg);
 		try {
 			TextArea ta = (TextArea) scene.lookup("#receivedMessages");
@@ -329,6 +365,54 @@ public class Client extends Application {
 		catch (NullPointerException npe){
 			System.out.println("FOUT!!!");
 		}
+	}
+
+	public void addContact(String password, String username, String userPassword){
+		try {
+			secureRandomGenerator = new SecureRandom();
+			// Hash van userinput nemen? ==> generatedPassword
+			byte[] generatedPassword = hashFunction(password.getBytes());
+			// new SecureRandom(userinput.getBytes()) ==> nextBytes()? ==> generatedPassword
+			//byte[] generatedPassword = secureRandomGenerator.generateSeed(32);
+
+			String passwordString = Base64.getEncoder().encodeToString(generatedPassword);
+			System.out.println("PASSWORD: " + passwordString);
+			secureRandomGenerator = new SecureRandom(generatedPassword);
+			byte[] salt = new byte[32];
+			secureRandomGenerator.nextBytes(salt);
+			indexAB = Math.abs(passwordString.hashCode()%25);
+			SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+			KeySpec keySpec = new PBEKeySpec(passwordString.toCharArray(), salt, 65536, 256);
+			SecretKey temp = factory.generateSecret(keySpec);
+			symmetricKeyAB = new SecretKeySpec(temp.getEncoded(), 0, temp.getEncoded().length,  "AES");
+			tagAB = generatedPassword;
+
+			// 24 is willekeurig gekozen in overeenkomst met lengte van de List in BulletinBoardImplementation
+			//indexAB = secureRandomGenerator.nextInt(24);
+			//tagAB = secureRandomGenerator.generateSeed(256);
+			//KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+			//keyGenerator.init(256);
+			//symmetricKeyAB = keyGenerator.generateKey();
+			//System.out.println("indexAB: " + indexAB + "\n\n" + "tagAB: " + Base64.getEncoder().encodeToString(tagAB) + "\n\n" + "symmetricKeyAB: " + Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
+
+			generatedPassword = hashFunction(userPassword.getBytes());
+			passwordString = Base64.getEncoder().encodeToString(generatedPassword);
+			indexBA = Math.abs(passwordString.hashCode()%25);
+			tagBA = generatedPassword;
+			secureRandomGenerator = new SecureRandom(generatedPassword);
+			salt = new byte[32];
+			secureRandomGenerator.nextBytes(salt);
+			keySpec = new PBEKeySpec(passwordString.toCharArray(), salt, 65536, 256);
+			temp = factory.generateSecret(keySpec);
+			symmetricKeyBA = new SecretKeySpec(temp.getEncoded(), 0, temp.getEncoded().length,  "AES");
+			nameBA = username;
+		} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public String getNameBA() {
+		return nameBA;
 	}
 
 	public static void main(String[] args) {

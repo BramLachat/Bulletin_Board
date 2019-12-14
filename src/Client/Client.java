@@ -9,12 +9,12 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import Interfaces.BulletinBoard;
 import com.fasterxml.jackson.core.*;
 import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -27,7 +27,6 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
-import javafx.util.Pair;
 
 import javax.crypto.*;
 import javax.crypto.spec.PBEKeySpec;
@@ -36,6 +35,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class Client extends Application {
 
+	private static SecretKey dataEncryptionKey;
 	private static SecretKey symmetricKeyAB;
 	private static List<SecretKey> symmetricKeysAB = new ArrayList<>();
 	private static SecretKey symmetricKeyBA;
@@ -53,7 +53,6 @@ public class Client extends Application {
 	private static SecureRandom secureRandomGenerator = new SecureRandom();
 	private static BulletinBoard bb;
 	private static String separator = "#§_§#";
-	//private List<Byte> seperatorByteList;
 	private static String name;
 	private static Scanner scan;
 
@@ -62,34 +61,25 @@ public class Client extends Application {
 	//GUI
 	@FXML private TextField sendMessages;
 	@FXML private TextArea receivedMessages = new TextArea();
+	@FXML private Label contactPerson;
 	private Scene scene;
 
 	public Client(){
-		/*secureRandomGenerator = new SecureRandom();
-		symmetricKeysAB = new ArrayList<>();
-		symmetricKeysBA = new ArrayList<>();
-		indicesAB = new ArrayList<>();
-		tagsAB = new ArrayList<>();
-		indicesBA = new ArrayList<>();
-		tagsBA = new ArrayList<>();
-		namesBA = new HashMap<>();*/
 	}
 
 	@Override
 	public void start(Stage primaryStage) throws Exception {
+		scan = new Scanner(System.in);
+		System.out.println("Geef gebruikersnaam in:");
+		name = scan.nextLine();
+
 		try{
+			setEncryptionKey();
 			readFromFile();
 		}
 		catch (IOException ioe){
-			scan = new Scanner(System.in);
-			System.out.println("Geef gebruikersnaam in:");
-			name = scan.nextLine();
 		}
-		/*byte[] separatorByte = "#§_§#".getBytes();
-		seperatorByteList = new ArrayList<>();
-		for(int i = 0 ; i < separatorByte.length ; i++){
-			seperatorByteList.add(separatorByte[i]);
-		}*/
+
 		startClient();
 
 		Parent root = FXMLLoader.load(getClass().getResource("Client.fxml"));
@@ -122,74 +112,33 @@ public class Client extends Application {
 			}
 			rt.interrupt();
 		});
-		/*textArea = new TextArea();
-		TextField textField = new TextField();
-		TextField indexField = new TextField();
-
-		VBox vBox = new VBox(textArea,textField);
-		vBox.setSpacing(15);
-
-		BlockingQueue<Integer> stdInQueue = new LinkedBlockingQueue<>();
-		System.setIn(new InputStream() {
-
-			@Override
-			public int read() throws IOException {
-				try {
-					int c = stdInQueue.take().intValue();
-					return c;
-				} catch (InterruptedException exc) {
-					Thread.currentThread().interrupt();
-					return -1 ;
-				}
-			}
-		});
-
-		textField.setOnKeyPressed(new EventHandler<KeyEvent>() {
-			@Override
-			public void handle(KeyEvent event) {
-				if(event.getCode().equals(KeyCode.ENTER)) {
-
-					for (char c : textField.getText().toCharArray()) {
-						stdInQueue.add(new Integer(c));
-					}
-					stdInQueue.add(new Integer('\n'));
-					textField.clear();
-					indexField.setText(""+indexAB);
-
-				}
-			}
-		});
-
-		Scene scene = new Scene(vBox,800,800);
-		primaryStage.setScene(scene);*/
 	}
 
 	@FXML protected void handleSubmitButtonAction(ActionEvent event) {
 		String msg=sendMessages.getText();
 		sendMessages.clear();
-		sendAB(msg);
+		try{
+			sendAB(msg);
+		}
+		catch (NullPointerException e){
+			e.printStackTrace();
+		}
 		receivedMessages.appendText(msg + "\n");
 	}
 
 	@FXML protected void handleSelectContactButtonAction(ActionEvent event) {
-		/*List<String> choices = new ArrayList<>();
-		choices.add("a");
-		choices.add("b");
-		choices.add("c");*/
-
 		ChoiceDialog<String> dialog = new ChoiceDialog<>(null, namesBA.keySet());
 		dialog.setTitle("Kies contactpersoon");
 		dialog.setHeaderText("Selecteer een contactpersoon");
 		dialog.setContentText("Keuze:");
+		dialog.setGraphic(new ImageView(this.getClass().getResource("user.png").toString()));
 
 // Traditional way to get the response value.
 		Optional<String> result = dialog.showAndWait();
 		if (result.isPresent()){
-			//System.out.println("Your choice: " + result.get());
-			receivedMessages.clear();
-
-			// SAVE DATA FROM CURRENT CONTACTPERSON
 			try{
+
+// SAVE DATA FROM CURRENT CONTACTPERSON
 				int previousIndex = namesBA.get(nameBA);
 				symmetricKeysAB.set(previousIndex,symmetricKeyAB);
 				indicesAB.set(previousIndex, indexAB);
@@ -209,6 +158,9 @@ public class Client extends Application {
 			indexBA = indicesBA.get(newIndex);
 			tagBA = tagsBA.get(newIndex);
 			nameBA = result.get();
+
+			contactPerson.setText("Contactpersoon: " + nameBA);
+			receivedMessages.clear();
 		}
 	}
 
@@ -253,8 +205,11 @@ public class Client extends Application {
 		AtomicBoolean usernameEmpty = new AtomicBoolean(true);
 		AtomicBoolean passwordEmpty = new AtomicBoolean(true);
 		AtomicBoolean userpasswordEmpty = new AtomicBoolean(true);
+		AtomicReference<String> s = new AtomicReference<>();
 		username.textProperty().addListener((observable, oldValue, newValue) -> {
 			usernameEmpty.set(newValue.trim().isEmpty());
+			s.set(newValue);
+			s.get();
 			if(!usernameEmpty.get() && !userpasswordEmpty.get() && !passwordEmpty.get()){
 				loginButton.setDisable(false);
 			}
@@ -284,7 +239,7 @@ public class Client extends Application {
 		dialog.getDialogPane().setContent(grid);
 
 // Request focus on the username field by default.
-		Platform.runLater(() -> username.requestFocus());
+		Platform.runLater(() -> password.requestFocus());
 
 // Convert the result to a username-password-pair when the login button is clicked.
 		dialog.setResultConverter(dialogButton -> {
@@ -301,7 +256,7 @@ public class Client extends Application {
 		Optional<List<String>> result = dialog.showAndWait();
 
 		result.ifPresent(usernamePassword -> {
-			System.out.println("Eigen Paswoord=" + usernamePassword.get(0) + ", Gebruikersnaam=" + usernamePassword.get(1) + ", Gebruiker paswoord=" + usernamePassword.get(2));
+			//System.out.println("Eigen Paswoord=" + usernamePassword.get(0) + ", Gebruikersnaam=" + usernamePassword.get(1) + ", Gebruiker paswoord=" + usernamePassword.get(2));
 
 			// SAVE DATA FROM CURRENT CONTACTPERSON
 			try{
@@ -336,8 +291,24 @@ public class Client extends Application {
 	// If you're deriving a key from a master key, as opposed to deriving a key from a password, then you should use a key derivation function such as HKDF,
 	// not a password-based key derivation function such as PBKDF2. That's not insecure per se, but it's massively inefficient.
 	// (https://stackoverflow.com/questions/4513433/deriving-a-secret-from-a-master-key-using-jce-jca)
-	protected SecretKey keyDerivationFunction(SecretKey key){
-		KeySpec spec = new PBEKeySpec(Base64.getEncoder().encodeToString(key.getEncoded()).toCharArray());
+	protected SecretKey keyDerivationFunction(String password){
+		SecureRandom sr = new SecureRandom(password.getBytes());
+		byte[] salt = new byte[32];
+		sr.nextBytes(salt);
+		KeySpec keySpec = new PBEKeySpec(password.toCharArray(), salt, 65536, 256);
+		SecretKey sk = null;
+		SecretKeyFactory factory = null;
+		try {
+			factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+			SecretKey temp = factory.generateSecret(keySpec);
+			sk = new SecretKeySpec(temp.getEncoded(), 0, temp.getEncoded().length,  "AES");
+		} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+			e.printStackTrace();
+		}
+		System.out.println("keyDerivationFunction: returned sk: " + Base64.getEncoder().encodeToString(sk.getEncoded()));
+		return sk;
+
+		/*KeySpec spec = new PBEKeySpec(Base64.getEncoder().encodeToString(key.getEncoded()).toCharArray());
 		SecretKey sk = null;
 		SecretKeyFactory factory = null;
 		try {
@@ -348,7 +319,7 @@ public class Client extends Application {
 		} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
 			e.printStackTrace();
 		}
-		return sk;
+		return sk;*/
 	}
 
 	protected byte[] hashFunction(byte[] tag) {
@@ -363,14 +334,11 @@ public class Client extends Application {
 
 	protected void sendAB(String m){
 		// Implementatie van sendAB function (zie figure 2 paper)
-		int nextIndexAB = secureRandomGenerator.nextInt(24);
 		byte[] nextTagAB = secureRandomGenerator.generateSeed(32);
+		int nextIndexAB = nextTagAB.hashCode()%25;
 		byte[] value = createMessage(m, nextIndexAB, nextTagAB);
 		try {
-			Cipher cipher = Cipher.getInstance("AES");
-			//System.out.println("Gebruikte sleutel: " + Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
-			cipher.init(Cipher.ENCRYPT_MODE, symmetricKeyAB);
-			byte[] valueEncrypted = cipher.doFinal(value);
+			byte[] valueEncrypted = encrypt(value, symmetricKeyAB);
 			//byte[] hastTagAB = hashFunction(new String(tagAB).getBytes());
 			byte[] hastTagAB = hashFunction(tagAB);
 			bb.add(indexAB, valueEncrypted, hastTagAB);
@@ -379,32 +347,12 @@ public class Client extends Application {
 		}
 		indexAB = nextIndexAB;
 		tagAB = nextTagAB;
-		symmetricKeyAB = keyDerivationFunction(symmetricKeyAB);
+		symmetricKeyAB = keyDerivationFunction(Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
 	}
 
 	private byte[] createMessage(String m, int nextIndexAB, byte[] nextTagAB) {
 		String message = m + separator + nextIndexAB + separator + Base64.getEncoder().encodeToString(nextTagAB);
 		return message.getBytes();
-		/*List<Byte> byteList = new ArrayList<>();
-		byte[] mBytes = m.getBytes();
-		for(int i = 0 ; i < mBytes.length ; i++) {
-			byteList.add(mBytes[i]);
-		}
-		byteList.addAll(seperatorByteList);
-		byte[] nextIndexABBytes = Integer.toString(nextIndexAB).getBytes();
-		for(int i = 0 ; i < nextIndexABBytes.length ; i++) {
-			byteList.add(nextIndexABBytes[i]);
-		}
-		byteList.addAll(seperatorByteList);
-		System.out.println("nextTagAB.length: " + nextTagAB.length);
-		for(int i = 0 ; i < nextTagAB.length ; i++) {
-			byteList.add(nextTagAB[i]);
-		}
-		byte[] message = new byte[byteList.size()];
-		for(int i = 0 ; i < byteList.size() ; i++) {
-			message[i] = byteList.get(i);
-		}
-		return message;*/
 	}
 
 	protected String receiveBA() throws InterruptedException {
@@ -417,14 +365,11 @@ public class Client extends Application {
 				value = bb.get(indexBA, tagBA);
 			}
 			if(value != null){
-				Cipher cipher = Cipher.getInstance("AES");
-				//cipher.init(Cipher.DECRYPT_MODE, symmetricKeyBA);
-				cipher.init(Cipher.DECRYPT_MODE, symmetricKeyBA);
-				byte[] decryptedValue = cipher.doFinal(value);
+				byte[] decryptedValue = decrypt(value, symmetricKeyBA);
 				String[] message = new String(decryptedValue).split("#§_§#");
 				indexBA = Integer.parseInt(message[1]);
 				tagBA = Base64.getDecoder().decode(message[2]);
-				symmetricKeyBA = keyDerivationFunction(symmetricKeyBA);
+				symmetricKeyBA = keyDerivationFunction(Base64.getEncoder().encodeToString(symmetricKeyBA.getEncoded()));
 				res = message[0];
 				/*if(message[2].compareTo(new String(tagAB)) == 0){
 					System.out.println("TRUE");
@@ -443,65 +388,48 @@ public class Client extends Application {
 	}
 
 	public void printToTextArea(String msg){
-		//System.out.println(msg);
-		//messageList.add(msg);
 		try {
 			TextArea ta = (TextArea) scene.lookup("#receivedMessages");
 			ta.appendText(msg + "\n");
 		}
 		catch (NullPointerException npe){
-			System.out.println("FOUT!!!");
 		}
 	}
 
 	public void addContact(String password, String username, String userPassword){
-		try {
-			// Hash van userinput nemen? ==> generatedPassword
-			byte[] generatedPassword = hashFunction(password.getBytes());
-			// new SecureRandom(userinput.getBytes()) ==> nextBytes()? ==> generatedPassword
-			//byte[] generatedPassword = secureRandomGenerator.generateSeed(32);
+		// Hash van userinput nemen? ==> generatedPassword
+		//byte[] generatedPassword = hashFunction(password.getBytes());
+		// new SecureRandom(userinput.getBytes()) ==> nextBytes()? ==> generatedPassword
+		//byte[] generatedPassword = secureRandomGenerator.generateSeed(32);
 
-			String passwordString = Base64.getEncoder().encodeToString(generatedPassword);
-			System.out.println("PASSWORD: " + passwordString);
-			secureRandomGenerator = new SecureRandom(generatedPassword);
-			byte[] salt = new byte[32];
-			secureRandomGenerator.nextBytes(salt);
-			indexAB = Math.abs(passwordString.hashCode()%25);
-			indicesAB.add(indexAB);
-			SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-			KeySpec keySpec = new PBEKeySpec(passwordString.toCharArray(), salt, 65536, 256);
-			SecretKey temp = factory.generateSecret(keySpec);
-			symmetricKeyAB = new SecretKeySpec(temp.getEncoded(), 0, temp.getEncoded().length,  "AES");
-			symmetricKeysAB.add(symmetricKeyAB);
-			tagAB = generatedPassword;
-			tagsAB.add(tagAB);
+		//String passwordString = Base64.getEncoder().encodeToString(generatedPassword);
+		//System.out.println("PASSWORD: " + password);
+		indexAB = Math.abs(password.hashCode()%25);
+		indicesAB.add(indexAB);
+		symmetricKeyAB = keyDerivationFunction(password);
+		symmetricKeysAB.add(symmetricKeyAB);
+		tagAB = hashFunction(password.getBytes());
+		tagsAB.add(tagAB);
 
-			// 24 is willekeurig gekozen in overeenkomst met lengte van de List in BulletinBoardImplementation
-			//indexAB = secureRandomGenerator.nextInt(24);
-			//tagAB = secureRandomGenerator.generateSeed(256);
-			//KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-			//keyGenerator.init(256);
-			//symmetricKeyAB = keyGenerator.generateKey();
-			//System.out.println("indexAB: " + indexAB + "\n\n" + "tagAB: " + Base64.getEncoder().encodeToString(tagAB) + "\n\n" + "symmetricKeyAB: " + Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
+		// 24 is willekeurig gekozen in overeenkomst met lengte van de List in BulletinBoardImplementation
+		//indexAB = secureRandomGenerator.nextInt(24);
+		//tagAB = secureRandomGenerator.generateSeed(256);
+		//KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+		//keyGenerator.init(256);
+		//symmetricKeyAB = keyGenerator.generateKey();
+		//System.out.println("indexAB: " + indexAB + "\n\n" + "tagAB: " + Base64.getEncoder().encodeToString(tagAB) + "\n\n" + "symmetricKeyAB: " + Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
 
-			generatedPassword = hashFunction(userPassword.getBytes());
-			passwordString = Base64.getEncoder().encodeToString(generatedPassword);
-			indexBA = Math.abs(passwordString.hashCode()%25);
-			indicesBA.add(indexBA);
-			tagBA = generatedPassword;
-			tagsBA.add(tagBA);
-			secureRandomGenerator = new SecureRandom(generatedPassword);
-			salt = new byte[32];
-			secureRandomGenerator.nextBytes(salt);
-			keySpec = new PBEKeySpec(passwordString.toCharArray(), salt, 65536, 256);
-			temp = factory.generateSecret(keySpec);
-			symmetricKeyBA = new SecretKeySpec(temp.getEncoded(), 0, temp.getEncoded().length,  "AES");
-			symmetricKeysBA.add(symmetricKeyBA);
-			nameBA = username;
-			namesBA.put(nameBA, namesBA.size());
-		} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
-			e.printStackTrace();
-		}
+		indexBA = Math.abs(userPassword.hashCode()%25);
+		indicesBA.add(indexBA);
+		tagBA = hashFunction(userPassword.getBytes());
+		tagsBA.add(tagBA);
+		symmetricKeyBA = keyDerivationFunction(userPassword);
+		symmetricKeysBA.add(symmetricKeyBA);
+		nameBA = username;
+		namesBA.put(nameBA, namesBA.size());
+
+		receivedMessages.clear();
+		contactPerson.setText("Contactpersoon: " + nameBA);
 	}
 
 	public String getNameBA() {
@@ -512,26 +440,38 @@ public class Client extends Application {
 		JsonFactory factory = new JsonFactory();
 
 		JsonGenerator generator = factory.createGenerator(
-				new File("output.json"), JsonEncoding.UTF8);
+				new File(name + ".json"), JsonEncoding.UTF8);
 
 		List<String> names = new ArrayList<>(namesBA.keySet());
 		for(int i = 0 ; i < namesBA.size() ; i++) {
 			generator.writeStartObject();
-			generator.writeStringField("name", name);
-			generator.writeBinaryField("symmetricKeyAB", symmetricKeysAB.get(i).getEncoded());
-			generator.writeNumberField("indexAB", indicesAB.get(i));
-			generator.writeBinaryField("tagAB", tagsAB.get(i));
-			generator.writeStringField("nameBA", names.get(i));
-			generator.writeBinaryField("symmetricKeyBA", symmetricKeysBA.get(i).getEncoded());
-			generator.writeNumberField("indexBA", indicesBA.get(i));
-			generator.writeBinaryField("tagBA", tagsBA.get(i));
-			generator.writeEndObject();
+			try {
+				generator.writeBinaryField("name", encrypt(name.getBytes(), dataEncryptionKey));
+				generator.writeBinaryField("symmetricKeyAB", encrypt(symmetricKeysAB.get(i).getEncoded(), dataEncryptionKey));
+				generator.writeBinaryField("indexAB", encrypt(indicesAB.get(i).toString().getBytes(), dataEncryptionKey));
+				generator.writeBinaryField("tagAB", encrypt(tagsAB.get(i), dataEncryptionKey));
+				generator.writeBinaryField("nameBA", encrypt(names.get(i).getBytes(), dataEncryptionKey));
+				generator.writeBinaryField("symmetricKeyBA", encrypt(symmetricKeysBA.get(i).getEncoded(), dataEncryptionKey));
+				generator.writeBinaryField("indexBA", encrypt(indicesBA.get(i).toString().getBytes(), dataEncryptionKey));
+				generator.writeBinaryField("tagBA", encrypt(tagsBA.get(i), dataEncryptionKey));
+				generator.writeEndObject();
+			} catch (NoSuchPaddingException e) {
+				e.printStackTrace();
+			} catch (NoSuchAlgorithmException e) {
+				e.printStackTrace();
+			} catch (InvalidKeyException e) {
+				e.printStackTrace();
+			} catch (BadPaddingException e) {
+				e.printStackTrace();
+			} catch (IllegalBlockSizeException e) {
+				e.printStackTrace();
+			}
 		}
 		generator.close();
 	}
 
 	private void readFromFile() throws IOException {
-		File file = new File("output.json");
+		File file = new File(name + ".json");
 
 		JsonFactory factory = new JsonFactory();
 		JsonParser parser = factory.createParser(file);
@@ -544,29 +484,140 @@ public class Client extends Application {
 
 				jsonToken = parser.nextToken();
 
-				if("name".equals(fieldName)){
-					name = parser.getValueAsString();
-					System.out.println("name: " + name);
-				} else if ("symmetricKeyAB".equals(fieldName)){
-					symmetricKeysAB.add(new SecretKeySpec(parser.getBinaryValue(), 0, parser.getBinaryValue().length,  "AES"));
-					System.out.println("symmetricKeyAB: " + parser.getBinaryValue());
-				} else if ("indexAB".equals(fieldName)){
-					indicesAB.add(parser.getValueAsInt());
-					System.out.println("indexAB: " + parser.getValueAsInt());
-				} else if ("tagAB".equals(fieldName)){
-					tagsAB.add(parser.getBinaryValue());
-					System.out.println("tagAB: " + parser.getBinaryValue());
-				} else if("nameBA".equals(fieldName)){
-					namesBA.put(parser.getValueAsString(), namesBA.size());
-				} else if ("symmetricKeyBA".equals(fieldName)){
-					symmetricKeysBA.add(new SecretKeySpec(parser.getBinaryValue(), 0, parser.getBinaryValue().length,  "AES"));
-				} else if ("indexBA".equals(fieldName)){
-					indicesBA.add(parser.getValueAsInt());
-				} else if ("tagBA".equals(fieldName)){
-					tagsBA.add(parser.getBinaryValue());
+				try {
+					if ("name".equals(fieldName)) {
+						//name = parser.getValueAsString();
+						System.out.println("name: " + name);
+					} else if ("symmetricKeyAB".equals(fieldName)) {
+						symmetricKeysAB.add(new SecretKeySpec(decrypt(parser.getBinaryValue(), dataEncryptionKey), 0, decrypt(parser.getBinaryValue(), dataEncryptionKey).length, "AES"));
+						//System.out.println("symmetricKeyAB: " + parser.getBinaryValue());
+					} else if ("indexAB".equals(fieldName)) {
+						indicesAB.add(Integer.parseInt(new String(decrypt(parser.getBinaryValue(), dataEncryptionKey))));
+						//System.out.println("indexAB: " + parser.getValueAsInt());
+					} else if ("tagAB".equals(fieldName)) {
+						tagsAB.add(decrypt(parser.getBinaryValue(), dataEncryptionKey));
+						//System.out.println("tagAB: " + parser.getBinaryValue());
+					} else if ("nameBA".equals(fieldName)) {
+						namesBA.put(new String(decrypt(parser.getBinaryValue(), dataEncryptionKey)), namesBA.size());
+					} else if ("symmetricKeyBA".equals(fieldName)) {
+						symmetricKeysBA.add(new SecretKeySpec(decrypt(parser.getBinaryValue(), dataEncryptionKey), 0, decrypt(parser.getBinaryValue(), dataEncryptionKey).length, "AES"));
+					} else if ("indexBA".equals(fieldName)) {
+						indicesBA.add(Integer.parseInt(new String(decrypt(parser.getBinaryValue(), dataEncryptionKey))));
+					} else if ("tagBA".equals(fieldName)) {
+						tagsBA.add(decrypt(parser.getBinaryValue(), dataEncryptionKey));
+					}
+				}
+				catch (NoSuchPaddingException e) {
+					e.printStackTrace();
+				} catch (NoSuchAlgorithmException e) {
+					e.printStackTrace();
+				} catch (InvalidKeyException e) {
+					e.printStackTrace();
+				} catch (BadPaddingException e) {
+					e.printStackTrace();
+				} catch (IllegalBlockSizeException e) {
+					e.printStackTrace();
 				}
 			}
 		}
+	}
+
+	public void setEncryptionKey(){
+		// Create the custom dialog.
+		Dialog<String> dialog = new Dialog<>();
+		dialog.setTitle("Startup Dialog");
+		dialog.setHeaderText("Voeg een encryptiesleutel toe");
+
+// Set the icon (must be included in the project).
+		dialog.setGraphic(new ImageView(this.getClass().getResource("key.png").toString()));
+
+// Set the button types.
+		ButtonType loginButtonType = new ButtonType("Toevoegen", ButtonBar.ButtonData.OK_DONE);
+		dialog.getDialogPane().getButtonTypes().addAll(loginButtonType, ButtonType.CANCEL);
+
+// Create the username and password labels and fields.
+		GridPane grid = new GridPane();
+		grid.setHgap(10);
+		grid.setVgap(10);
+		grid.setPadding(new Insets(20, 150, 10, 10));
+
+		PasswordField password = new PasswordField();
+		password.setPromptText("Sleutel");
+		PasswordField password2 = new PasswordField();
+		password2.setPromptText("Bevestig sleutel");
+
+		grid.add(new Label("Encryptiesleutel:"), 0, 0);
+		grid.add(password, 1, 0);
+		grid.add(new Label("Encryptiesleutel:"), 0, 1);
+		grid.add(password2, 1, 1);
+
+// Enable/Disable login button depending on whether a username was entered.
+		Node loginButton = dialog.getDialogPane().lookupButton(loginButtonType);
+		loginButton.setDisable(true);
+
+// Do some validation (using the Java 8 lambda syntax).
+		AtomicBoolean passwordEmpty = new AtomicBoolean(true);
+		AtomicBoolean password2Empty = new AtomicBoolean(true);
+		AtomicReference<String> pwd = new AtomicReference<>();
+		AtomicReference<String> pwd2 = new AtomicReference<>();
+		password.textProperty().addListener((observable, oldValue, newValue) -> {
+			passwordEmpty.set(newValue.trim().isEmpty());
+			pwd.set(newValue);
+			if(!passwordEmpty.get() && !password2Empty.get() && pwd.get().equals(pwd2.get())){
+				loginButton.setDisable(false);
+			}
+			else{
+				loginButton.setDisable(true);
+			}
+		});
+		password2.textProperty().addListener((observable, oldValue, newValue) -> {
+			password2Empty.set(newValue.trim().isEmpty());
+			pwd2.set(newValue);
+			if(!passwordEmpty.get() && !password2Empty.get() && pwd.get().equals(pwd2.get())){
+				loginButton.setDisable(false);
+			}
+			else{
+				loginButton.setDisable(true);
+			}
+		});
+
+		dialog.getDialogPane().setContent(grid);
+
+// Request focus on the username field by default.
+		Platform.runLater(() -> password.requestFocus());
+
+// Convert the result to a username-password-pair when the login button is clicked.
+		dialog.setResultConverter(dialogButton -> {
+			if (dialogButton == loginButtonType) {
+				String result = password.getText();
+				return result;
+			}
+			return null;
+		});
+
+		Optional<String> result = dialog.showAndWait();
+
+		result.ifPresent(usernamePassword -> {
+			System.out.println("Encryptiesleutel=" + usernamePassword);
+
+			dataEncryptionKey = keyDerivationFunction(usernamePassword);
+		});
+	}
+
+	public byte[] encrypt(byte[] value, SecretKey key) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
+		Cipher cipher = Cipher.getInstance("AES");
+		//System.out.println("Gebruikte sleutel: " + Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
+		cipher.init(Cipher.ENCRYPT_MODE, key);
+		byte[] valueEncrypted = cipher.doFinal(value);
+		return valueEncrypted;
+	}
+
+	public byte[] decrypt(byte[] value, SecretKey key) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
+		Cipher cipher = Cipher.getInstance("AES");
+		//cipher.init(Cipher.DECRYPT_MODE, symmetricKeyBA);
+		cipher.init(Cipher.DECRYPT_MODE, key);
+		byte[] decryptedValue = cipher.doFinal(value);
+		return decryptedValue;
 	}
 
 	public static void main(String[] args) {

@@ -1,5 +1,6 @@
 package Client;
 
+import java.io.*;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -10,6 +11,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import Interfaces.BulletinBoard;
+import com.fasterxml.jackson.core.*;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
@@ -35,13 +37,20 @@ import javax.crypto.spec.SecretKeySpec;
 public class Client extends Application {
 
 	private static SecretKey symmetricKeyAB;
+	private static List<SecretKey> symmetricKeysAB = new ArrayList<>();
 	private static SecretKey symmetricKeyBA;
+	private static List<SecretKey> symmetricKeysBA = new ArrayList<>();
 	private static int indexAB = -1;
+	private static List<Integer> indicesAB = new ArrayList<>();
 	private static byte[] tagAB;
+	private static List<byte[]> tagsAB = new ArrayList<>();
 	private static int indexBA = -1;
+	private static List<Integer> indicesBA = new ArrayList<>();
 	private static byte[] tagBA;
+	private static List<byte[]> tagsBA = new ArrayList<>();
 	private static String nameBA;
-	private static SecureRandom secureRandomGenerator;
+	private static HashMap<String, Integer> namesBA = new HashMap<>();
+	private static SecureRandom secureRandomGenerator = new SecureRandom();
 	private static BulletinBoard bb;
 	private static String separator = "#§_§#";
 	//private List<Byte> seperatorByteList;
@@ -53,16 +62,29 @@ public class Client extends Application {
 	//GUI
 	@FXML private TextField sendMessages;
 	@FXML private TextArea receivedMessages = new TextArea();
-	private  ObservableList<String> messageList;
 	private Scene scene;
 
-	public Client(){}
+	public Client(){
+		/*secureRandomGenerator = new SecureRandom();
+		symmetricKeysAB = new ArrayList<>();
+		symmetricKeysBA = new ArrayList<>();
+		indicesAB = new ArrayList<>();
+		tagsAB = new ArrayList<>();
+		indicesBA = new ArrayList<>();
+		tagsBA = new ArrayList<>();
+		namesBA = new HashMap<>();*/
+	}
 
 	@Override
 	public void start(Stage primaryStage) throws Exception {
-		scan = new Scanner(System.in);
-		System.out.println("Geef gebruikersnaam in:");
-		name = scan.nextLine();
+		try{
+			readFromFile();
+		}
+		catch (IOException ioe){
+			scan = new Scanner(System.in);
+			System.out.println("Geef gebruikersnaam in:");
+			name = scan.nextLine();
+		}
 		/*byte[] separatorByte = "#§_§#".getBytes();
 		seperatorByteList = new ArrayList<>();
 		for(int i = 0 ; i < separatorByte.length ; i++){
@@ -82,6 +104,22 @@ public class Client extends Application {
 
 		// EXIT PROGRAM
 		primaryStage.setOnCloseRequest((WindowEvent event1) -> {
+			try {
+				// SAVE DATA FROM CURRENT CONTACTPERSON
+				try{
+					int previousIndex = namesBA.get(nameBA);
+					symmetricKeysAB.set(previousIndex,symmetricKeyAB);
+					indicesAB.set(previousIndex, indexAB);
+					tagsAB.set(previousIndex, tagAB);
+					symmetricKeysBA.set(previousIndex, symmetricKeyBA);
+					indicesBA.set(previousIndex, indexBA);
+					tagsBA.set(previousIndex, tagBA);
+				}
+				catch (NullPointerException npe){}
+				writeToFile();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 			rt.interrupt();
 		});
 		/*textArea = new TextArea();
@@ -134,7 +172,44 @@ public class Client extends Application {
 	}
 
 	@FXML protected void handleSelectContactButtonAction(ActionEvent event) {
+		/*List<String> choices = new ArrayList<>();
+		choices.add("a");
+		choices.add("b");
+		choices.add("c");*/
 
+		ChoiceDialog<String> dialog = new ChoiceDialog<>(null, namesBA.keySet());
+		dialog.setTitle("Kies contactpersoon");
+		dialog.setHeaderText("Selecteer een contactpersoon");
+		dialog.setContentText("Keuze:");
+
+// Traditional way to get the response value.
+		Optional<String> result = dialog.showAndWait();
+		if (result.isPresent()){
+			//System.out.println("Your choice: " + result.get());
+			receivedMessages.clear();
+
+			// SAVE DATA FROM CURRENT CONTACTPERSON
+			try{
+				int previousIndex = namesBA.get(nameBA);
+				symmetricKeysAB.set(previousIndex,symmetricKeyAB);
+				indicesAB.set(previousIndex, indexAB);
+				tagsAB.set(previousIndex, tagAB);
+				symmetricKeysBA.set(previousIndex, symmetricKeyBA);
+				indicesBA.set(previousIndex, indexBA);
+				tagsBA.set(previousIndex, tagBA);
+			}
+			catch (NullPointerException npe){
+			}
+
+			int newIndex = namesBA.get(result.get());
+			symmetricKeyAB = symmetricKeysAB.get(newIndex);
+			indexAB = indicesAB.get(newIndex);
+			tagAB = tagsAB.get(newIndex);
+			symmetricKeyBA = symmetricKeysBA.get(newIndex);
+			indexBA = indicesBA.get(newIndex);
+			tagBA = tagsBA.get(newIndex);
+			nameBA = result.get();
+		}
 	}
 
 	@FXML protected  void handleNewContactButtonAction(ActionEvent event){
@@ -144,7 +219,7 @@ public class Client extends Application {
 		dialog.setHeaderText("Voeg een persoon toe");
 
 // Set the icon (must be included in the project).
-		//dialog.setGraphic(new ImageView(this.getClass().getResource("login.png").toString()));
+		dialog.setGraphic(new ImageView(this.getClass().getResource("login.png").toString()));
 
 // Set the button types.
 		ButtonType loginButtonType = new ButtonType("Login", ButtonBar.ButtonData.OK_DONE);
@@ -227,6 +302,19 @@ public class Client extends Application {
 
 		result.ifPresent(usernamePassword -> {
 			System.out.println("Eigen Paswoord=" + usernamePassword.get(0) + ", Gebruikersnaam=" + usernamePassword.get(1) + ", Gebruiker paswoord=" + usernamePassword.get(2));
+
+			// SAVE DATA FROM CURRENT CONTACTPERSON
+			try{
+				int previousIndex = namesBA.get(nameBA);
+				symmetricKeysAB.set(previousIndex,symmetricKeyAB);
+				indicesAB.set(previousIndex, indexAB);
+				tagsAB.set(previousIndex, tagAB);
+				symmetricKeysBA.set(previousIndex, symmetricKeyBA);
+				indicesBA.set(previousIndex, indexBA);
+				tagsBA.set(previousIndex, tagBA);
+			}
+			catch (NullPointerException npe){}
+
 			addContact(usernamePassword.get(0), usernamePassword.get(1), usernamePassword.get(2));
 		});
 	}
@@ -274,10 +362,9 @@ public class Client extends Application {
 	}
 
 	protected void sendAB(String m){
-		//System.out.println("bericht verzonden");
 		// Implementatie van sendAB function (zie figure 2 paper)
 		int nextIndexAB = secureRandomGenerator.nextInt(24);
-		byte[] nextTagAB = secureRandomGenerator.generateSeed(256);
+		byte[] nextTagAB = secureRandomGenerator.generateSeed(32);
 		byte[] value = createMessage(m, nextIndexAB, nextTagAB);
 		try {
 			Cipher cipher = Cipher.getInstance("AES");
@@ -369,7 +456,6 @@ public class Client extends Application {
 
 	public void addContact(String password, String username, String userPassword){
 		try {
-			secureRandomGenerator = new SecureRandom();
 			// Hash van userinput nemen? ==> generatedPassword
 			byte[] generatedPassword = hashFunction(password.getBytes());
 			// new SecureRandom(userinput.getBytes()) ==> nextBytes()? ==> generatedPassword
@@ -381,11 +467,14 @@ public class Client extends Application {
 			byte[] salt = new byte[32];
 			secureRandomGenerator.nextBytes(salt);
 			indexAB = Math.abs(passwordString.hashCode()%25);
+			indicesAB.add(indexAB);
 			SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
 			KeySpec keySpec = new PBEKeySpec(passwordString.toCharArray(), salt, 65536, 256);
 			SecretKey temp = factory.generateSecret(keySpec);
 			symmetricKeyAB = new SecretKeySpec(temp.getEncoded(), 0, temp.getEncoded().length,  "AES");
+			symmetricKeysAB.add(symmetricKeyAB);
 			tagAB = generatedPassword;
+			tagsAB.add(tagAB);
 
 			// 24 is willekeurig gekozen in overeenkomst met lengte van de List in BulletinBoardImplementation
 			//indexAB = secureRandomGenerator.nextInt(24);
@@ -398,14 +487,18 @@ public class Client extends Application {
 			generatedPassword = hashFunction(userPassword.getBytes());
 			passwordString = Base64.getEncoder().encodeToString(generatedPassword);
 			indexBA = Math.abs(passwordString.hashCode()%25);
+			indicesBA.add(indexBA);
 			tagBA = generatedPassword;
+			tagsBA.add(tagBA);
 			secureRandomGenerator = new SecureRandom(generatedPassword);
 			salt = new byte[32];
 			secureRandomGenerator.nextBytes(salt);
 			keySpec = new PBEKeySpec(passwordString.toCharArray(), salt, 65536, 256);
 			temp = factory.generateSecret(keySpec);
 			symmetricKeyBA = new SecretKeySpec(temp.getEncoded(), 0, temp.getEncoded().length,  "AES");
+			symmetricKeysBA.add(symmetricKeyBA);
 			nameBA = username;
+			namesBA.put(nameBA, namesBA.size());
 		} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
 			e.printStackTrace();
 		}
@@ -413,6 +506,67 @@ public class Client extends Application {
 
 	public String getNameBA() {
 		return nameBA;
+	}
+
+	public void writeToFile() throws IOException {
+		JsonFactory factory = new JsonFactory();
+
+		JsonGenerator generator = factory.createGenerator(
+				new File("output.json"), JsonEncoding.UTF8);
+
+		List<String> names = new ArrayList<>(namesBA.keySet());
+		for(int i = 0 ; i < namesBA.size() ; i++) {
+			generator.writeStartObject();
+			generator.writeStringField("name", name);
+			generator.writeBinaryField("symmetricKeyAB", symmetricKeysAB.get(i).getEncoded());
+			generator.writeNumberField("indexAB", indicesAB.get(i));
+			generator.writeBinaryField("tagAB", tagsAB.get(i));
+			generator.writeStringField("nameBA", names.get(i));
+			generator.writeBinaryField("symmetricKeyBA", symmetricKeysBA.get(i).getEncoded());
+			generator.writeNumberField("indexBA", indicesBA.get(i));
+			generator.writeBinaryField("tagBA", tagsBA.get(i));
+			generator.writeEndObject();
+		}
+		generator.close();
+	}
+
+	private void readFromFile() throws IOException {
+		File file = new File("output.json");
+
+		JsonFactory factory = new JsonFactory();
+		JsonParser parser = factory.createParser(file);
+
+		while(!parser.isClosed()){
+			JsonToken jsonToken = parser.nextToken();
+
+			if(JsonToken.FIELD_NAME.equals(jsonToken)){
+				String fieldName = parser.getCurrentName();
+
+				jsonToken = parser.nextToken();
+
+				if("name".equals(fieldName)){
+					name = parser.getValueAsString();
+					System.out.println("name: " + name);
+				} else if ("symmetricKeyAB".equals(fieldName)){
+					symmetricKeysAB.add(new SecretKeySpec(parser.getBinaryValue(), 0, parser.getBinaryValue().length,  "AES"));
+					System.out.println("symmetricKeyAB: " + parser.getBinaryValue());
+				} else if ("indexAB".equals(fieldName)){
+					indicesAB.add(parser.getValueAsInt());
+					System.out.println("indexAB: " + parser.getValueAsInt());
+				} else if ("tagAB".equals(fieldName)){
+					tagsAB.add(parser.getBinaryValue());
+					System.out.println("tagAB: " + parser.getBinaryValue());
+				} else if("nameBA".equals(fieldName)){
+					namesBA.put(parser.getValueAsString(), namesBA.size());
+				} else if ("symmetricKeyBA".equals(fieldName)){
+					symmetricKeysBA.add(new SecretKeySpec(parser.getBinaryValue(), 0, parser.getBinaryValue().length,  "AES"));
+				} else if ("indexBA".equals(fieldName)){
+					indicesBA.add(parser.getValueAsInt());
+				} else if ("tagBA".equals(fieldName)){
+					tagsBA.add(parser.getBinaryValue());
+				}
+			}
+		}
 	}
 
 	public static void main(String[] args) {

@@ -39,6 +39,7 @@ import javax.crypto.spec.SecretKeySpec;
 public class Client extends Application {
 
 	private static SecretKey dataEncryptionKey;
+
 	private static SecretKey symmetricKeyAB;
 	private static List<SecretKey> symmetricKeysAB = new ArrayList<>();
 	private static SecretKey symmetricKeyBA;
@@ -53,6 +54,8 @@ public class Client extends Application {
 	private static List<byte[]> tagsBA = new ArrayList<>();
 	private static String nameBA;
 	private static HashMap<String, Integer> namesBA = new HashMap<>();
+	private static List<TextArea> messages = new ArrayList<>();
+
 	private static SecureRandom secureRandomGenerator = new SecureRandom();
 	private static BulletinBoard bb;
 	private static String separator = "#§_§#";
@@ -158,6 +161,11 @@ public class Client extends Application {
 				symmetricKeysBA.set(previousIndex, symmetricKeyBA);
 				indicesBA.set(previousIndex, indexBA);
 				tagsBA.set(previousIndex, tagBA);
+
+// SAVE CURRENT CONVERSATION
+				TextArea currentMessages = new TextArea(receivedMessages.getText());
+				messages.set(previousIndex, currentMessages);
+				receivedMessages.clear();
 			}
 			catch (NullPointerException npe){
 			}
@@ -171,8 +179,15 @@ public class Client extends Application {
 			tagBA = tagsBA.get(newIndex);
 			nameBA = result.get();
 
+			try {
+// RELOAD PREVIOUS CONVERSATION
+				TextArea previousMessages = new TextArea(messages.get(namesBA.get(nameBA)).getText());
+				receivedMessages.setText(previousMessages.getText());
+			}
+			catch (IndexOutOfBoundsException ioobe){
+				messages.add(new TextArea());
+			}
 			contactPerson.setText("Contactpersoon: " + nameBA);
-			receivedMessages.clear();
 		}
 	}
 
@@ -279,10 +294,17 @@ public class Client extends Application {
 				symmetricKeysBA.set(previousIndex, symmetricKeyBA);
 				indicesBA.set(previousIndex, indexBA);
 				tagsBA.set(previousIndex, tagBA);
+
+// SAVE CURRENT CONVERSATION
+				TextArea currentMessages = new TextArea(receivedMessages.getText());
+				messages.set(namesBA.get(nameBA), currentMessages);
 			}
 			catch (NullPointerException npe){}
 
 			addContact(usernamePassword.get(0), usernamePassword.get(1), usernamePassword.get(2));
+
+			receivedMessages.clear();
+			contactPerson.setText("Contactpersoon: " + nameBA);
 		});
 	}
 
@@ -442,9 +464,7 @@ public class Client extends Application {
 		symmetricKeysBA.add(symmetricKeyBA);
 		nameBA = username;
 		namesBA.put(nameBA, namesBA.size());
-
-		receivedMessages.clear();
-		contactPerson.setText("Contactpersoon: " + nameBA);
+		messages.add(new TextArea());
 	}
 
 	protected String getNameBA() {
@@ -502,7 +522,7 @@ public class Client extends Application {
 				try {
 					if ("name".equals(fieldName)) {
 						//name = parser.getValueAsString();
-						System.out.println("name: " + name);
+						//System.out.println("name: " + name);
 					} else if ("symmetricKeyAB".equals(fieldName)) {
 						symmetricKeysAB.add(new SecretKeySpec(decrypt(parser.getBinaryValue(), dataEncryptionKey), 0, decrypt(parser.getBinaryValue(), dataEncryptionKey).length, "AES"));
 						//System.out.println("symmetricKeyAB: " + parser.getBinaryValue());
@@ -522,16 +542,10 @@ public class Client extends Application {
 						tagsBA.add(decrypt(parser.getBinaryValue(), dataEncryptionKey));
 					}
 				}
-				catch (NoSuchPaddingException e) {
+				catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException | BadPaddingException | IllegalBlockSizeException e) {
 					e.printStackTrace();
-				} catch (NoSuchAlgorithmException e) {
-					e.printStackTrace();
-				} catch (InvalidKeyException e) {
-					e.printStackTrace();
-				} catch (BadPaddingException e) {
-					e.printStackTrace();
-				} catch (IllegalBlockSizeException e) {
-					e.printStackTrace();
+					System.out.println("ONGELDIG WACHTWOORD!");
+					System.exit(0);
 				}
 			}
 		}

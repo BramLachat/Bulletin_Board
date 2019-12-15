@@ -91,8 +91,10 @@ public class BulletinBoardImplementation extends UnicastRemoteObject implements 
 		byte[] value = null;
 		try {
 			byte[] hastTag = generateHash(tag);
-			System.out.println("get index: " + index + " // tag: " + Base64.getEncoder().encodeToString(hastTag));
 			value = cell.remove(Base64.getEncoder().encodeToString(hastTag));
+			if(value != null){
+				System.out.println("get index: " + index + " // tag: " + Base64.getEncoder().encodeToString(hastTag));
+			}
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}

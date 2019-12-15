@@ -15,6 +15,9 @@ import Interfaces.BulletinBoard;
 import com.fasterxml.jackson.core.*;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -61,7 +64,9 @@ public class Client extends Application {
 	@FXML private TextField sendMessages;
 	@FXML private TextArea receivedMessages = new TextArea();
 	@FXML private Label contactPerson;
+	//@FXML private ListView<String> listView;
 	private Scene scene;
+	//private ObservableList<String> observableList;
 
 	public Client(){
 	}
@@ -76,6 +81,18 @@ public class Client extends Application {
 		}
 
 		startClient();
+
+		/*ArrayList<String> indexLijst = new ArrayList<>();
+		indexLijst.add(String.valueOf(indexAB));
+		observableList = FXCollections.observableArrayList(indexLijst);
+		listView = new ListView<String>(observableList);
+
+		observableList.addListener(new ListChangeListener<String>() {
+			@Override
+			public void onChanged(Change<? extends String> c) {
+				listView.setItems(observableList);
+			}
+		});*/
 
 		Parent root = FXMLLoader.load(getClass().getResource("Client.fxml"));
 		primaryStage.setTitle("Chatbox van "+name);
@@ -340,13 +357,16 @@ public class Client extends Application {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+
+		//observableList.set(0,String.valueOf(indexAB));
+
 		indexAB = nextIndexAB;
 		tagAB = nextTagAB;
 		symmetricKeyAB = keyDerivationFunction(Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
 	}
 
 	private byte[] createMessage(String m, int nextIndexAB, byte[] nextTagAB) {
-		String message = m + separator + nextIndexAB + separator + Base64.getEncoder().encodeToString(nextTagAB);
+		String message = "index: "+ nextIndexAB + m + separator + nextIndexAB + separator + Base64.getEncoder().encodeToString(nextTagAB);
 		return message.getBytes();
 	}
 

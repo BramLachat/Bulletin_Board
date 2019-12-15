@@ -11,7 +11,7 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.text.Font?>
 
-<AnchorPane prefHeight="350.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Client.Client">
+<AnchorPane prefHeight="350.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Client.Client">
    <children>
       <SplitPane dividerPositions="0.5" layoutX="190.0" layoutY="119.0" orientation="VERTICAL" prefHeight="200.0" prefWidth="160.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="50.0">
         <items>
@@ -22,8 +22,8 @@
             </AnchorPane>
           <AnchorPane maxHeight="-Infinity" minHeight="-Infinity" minWidth="0.0" prefHeight="45.0" prefWidth="160.0" SplitPane.resizableWithParent="false">
                <children>
-                  <TextField fx:id="sendMessages" layoutX="85.0" layoutY="42.0" maxHeight="-Infinity" minHeight="-Infinity" prefHeight="25.0" AnchorPane.bottomAnchor="10.0" AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="115.0" />
-                  <Button fx:id="sendButton" defaultButton="true" layoutX="206.0" layoutY="57.0" maxHeight="-Infinity" minHeight="-Infinity" mnemonicParsing="false" onAction="#handleSubmitButtonAction" prefHeight="25.0" prefWidth="100.0" text="Send" AnchorPane.bottomAnchor="10.0" AnchorPane.rightAnchor="10.0" />
+                  <TextField fx:id="sendMessages" layoutX="85.0" layoutY="42.0" maxHeight="-Infinity" minHeight="-Infinity" prefHeight="25.0" prefWidth="468.0" AnchorPane.bottomAnchor="10.0" AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="120.0" />
+                  <Button fx:id="sendButton" defaultButton="true" layoutX="484.0" layoutY="10.0" maxHeight="-Infinity" minHeight="-Infinity" mnemonicParsing="false" onAction="#handleSubmitButtonAction" prefHeight="25.0" prefWidth="100.0" text="Send" AnchorPane.bottomAnchor="10.0" AnchorPane.rightAnchor="14.0" />
                </children>
             </AnchorPane>
         </items>

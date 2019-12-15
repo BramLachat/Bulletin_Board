@@ -60,8 +60,10 @@ public class Client extends Application {
 	private static BulletinBoard bb;
 	private static String separator = "#§_§#";
 	private static String name;
+	private static int mailboxSize;
 
 	private Thread rt;
+
 
 	//GUI
 	@FXML private TextField sendMessages;
@@ -123,7 +125,7 @@ public class Client extends Application {
 				catch (NullPointerException npe){}
 				writeToFile();
 			} catch (IOException e) {
-				e.printStackTrace();
+				//e.printStackTrace();
 			}
 			rt.interrupt();
 		});
@@ -136,7 +138,7 @@ public class Client extends Application {
 			sendAB(msg);
 		}
 		catch (NullPointerException e){
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 		receivedMessages.appendText(msg + "\n");
 	}
@@ -165,7 +167,6 @@ public class Client extends Application {
 // SAVE CURRENT CONVERSATION
 				TextArea currentMessages = new TextArea(receivedMessages.getText());
 				messages.set(previousIndex, currentMessages);
-				receivedMessages.clear();
 			}
 			catch (NullPointerException npe){
 			}
@@ -181,6 +182,7 @@ public class Client extends Application {
 
 			try {
 // RELOAD PREVIOUS CONVERSATION
+				receivedMessages.clear();
 				TextArea previousMessages = new TextArea(messages.get(namesBA.get(nameBA)).getText());
 				receivedMessages.setText(previousMessages.getText());
 			}
@@ -315,8 +317,9 @@ public class Client extends Application {
 
 			// search for CounterService
 			bb = (BulletinBoard) myRegistry.lookup("ChatService");
+			mailboxSize = bb.getMailboxSize();
 		} catch (Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 	}
 
@@ -337,9 +340,9 @@ public class Client extends Application {
 			SecretKey temp = factory.generateSecret(keySpec);
 			sk = new SecretKeySpec(temp.getEncoded(), 0, temp.getEncoded().length,  "AES");
 		} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
-		System.out.println("keyDerivationFunction: returned sk: " + Base64.getEncoder().encodeToString(sk.getEncoded()));
+		//System.out.println("keyDerivationFunction: returned sk: " + Base64.getEncoder().encodeToString(sk.getEncoded()));
 		return sk;
 
 		/*KeySpec spec = new PBEKeySpec(Base64.getEncoder().encodeToString(key.getEncoded()).toCharArray());
@@ -361,7 +364,7 @@ public class Client extends Application {
 		try {
 			digest = MessageDigest.getInstance("SHA-256");
 		} catch (NoSuchAlgorithmException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 		return digest.digest(tag);
 	}
@@ -369,7 +372,8 @@ public class Client extends Application {
 	protected void sendAB(String m){
 		// Implementatie van sendAB function (zie figure 2 paper)
 		byte[] nextTagAB = secureRandomGenerator.generateSeed(32);
-		int nextIndexAB = nextTagAB.hashCode()%25;
+		//int nextIndexAB = nextTagAB.hashCode()%25;
+		int nextIndexAB = secureRandomGenerator.nextInt(mailboxSize-1);
 		byte[] value = createMessage(m, nextIndexAB, nextTagAB);
 		try {
 			byte[] valueEncrypted = encrypt(value, symmetricKeyAB);
@@ -377,18 +381,15 @@ public class Client extends Application {
 			byte[] hastTagAB = hashFunction(tagAB);
 			bb.add(indexAB, valueEncrypted, hastTagAB);
 		} catch (Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
-
-		//observableList.set(0,String.valueOf(indexAB));
-
 		indexAB = nextIndexAB;
 		tagAB = nextTagAB;
 		symmetricKeyAB = keyDerivationFunction(Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
 	}
 
 	private byte[] createMessage(String m, int nextIndexAB, byte[] nextTagAB) {
-		String message = "index: "+ nextIndexAB + m + separator + nextIndexAB + separator + Base64.getEncoder().encodeToString(nextTagAB);
+		String message = "(index: "+ nextIndexAB + ") " + m + separator + nextIndexAB + separator + Base64.getEncoder().encodeToString(nextTagAB);
 		return message.getBytes();
 	}
 
@@ -419,7 +420,7 @@ public class Client extends Application {
 				}*/
 			}
 		} catch (RemoteException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 		return res;
 	}
@@ -441,7 +442,7 @@ public class Client extends Application {
 
 		//String passwordString = Base64.getEncoder().encodeToString(generatedPassword);
 		//System.out.println("PASSWORD: " + password);
-		indexAB = Math.abs(password.hashCode()%25);
+		indexAB = Math.abs(password.hashCode()%mailboxSize);
 		indicesAB.add(indexAB);
 		symmetricKeyAB = keyDerivationFunction(password);
 		symmetricKeysAB.add(symmetricKeyAB);
@@ -456,7 +457,7 @@ public class Client extends Application {
 		//symmetricKeyAB = keyGenerator.generateKey();
 		//System.out.println("indexAB: " + indexAB + "\n\n" + "tagAB: " + Base64.getEncoder().encodeToString(tagAB) + "\n\n" + "symmetricKeyAB: " + Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
 
-		indexBA = Math.abs(userPassword.hashCode()%25);
+		indexBA = Math.abs(userPassword.hashCode()%mailboxSize);
 		indicesBA.add(indexBA);
 		tagBA = hashFunction(userPassword.getBytes());
 		tagsBA.add(tagBA);
@@ -491,15 +492,15 @@ public class Client extends Application {
 				generator.writeBinaryField("tagBA", encrypt(tagsBA.get(i), dataEncryptionKey));
 				generator.writeEndObject();
 			} catch (NoSuchPaddingException e) {
-				e.printStackTrace();
+				//e.printStackTrace();
 			} catch (NoSuchAlgorithmException e) {
-				e.printStackTrace();
+				//e.printStackTrace();
 			} catch (InvalidKeyException e) {
-				e.printStackTrace();
+				//e.printStackTrace();
 			} catch (BadPaddingException e) {
-				e.printStackTrace();
+				//e.printStackTrace();
 			} catch (IllegalBlockSizeException e) {
-				e.printStackTrace();
+				//e.printStackTrace();
 			}
 		}
 		generator.close();
@@ -522,7 +523,7 @@ public class Client extends Application {
 				try {
 					if ("name".equals(fieldName)) {
 						//name = parser.getValueAsString();
-						//System.out.println("name: " + name);
+						messages.add(new TextArea());
 					} else if ("symmetricKeyAB".equals(fieldName)) {
 						symmetricKeysAB.add(new SecretKeySpec(decrypt(parser.getBinaryValue(), dataEncryptionKey), 0, decrypt(parser.getBinaryValue(), dataEncryptionKey).length, "AES"));
 						//System.out.println("symmetricKeyAB: " + parser.getBinaryValue());
@@ -543,8 +544,8 @@ public class Client extends Application {
 					}
 				}
 				catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException | BadPaddingException | IllegalBlockSizeException e) {
-					e.printStackTrace();
-					System.out.println("ONGELDIG WACHTWOORD!");
+					//e.printStackTrace();
+					System.out.println("FOUTIEF WACHTWOORD!");
 					System.exit(0);
 				}
 			}

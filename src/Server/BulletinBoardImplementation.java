@@ -22,7 +22,7 @@ public class BulletinBoardImplementation extends UnicastRemoteObject implements 
 
 	private int mailboxSize = 25;
 	private List<HashMap<String, byte[]>> mailbox;
-	private static ObservableList<Integer> waardenMailboxes;
+	private int[] numberOfMessages;
 
 	/*public void start(String [] args){
 		Application.launch(InnerClassVoorJavaFX.class,args);
@@ -54,35 +54,28 @@ public class BulletinBoardImplementation extends UnicastRemoteObject implements 
 	}*/
 
 
-	public List<HashMap<String, byte[]>> getMailbox() {
-		return mailbox;
-	}
-
 	public BulletinBoardImplementation() throws RemoteException {
 		// De 25 plaatsen zijn random gekozen
 		mailbox = new ArrayList<>(mailboxSize);
-		ArrayList<Integer> nullijst = new ArrayList<>();
+		numberOfMessages = new int[mailboxSize];
 
 		for(int i = 0 ; i < mailboxSize ; i++){
 			mailbox.add(new HashMap<>());
-			nullijst.add(0); //zal dus ook lengte 25 hebben
 		}
-
-		waardenMailboxes = FXCollections.observableArrayList(nullijst);
-	}
-
-
-	public ObservableList<Integer> getWaardenMailboxes(){
-		waardenMailboxes.set(5,waardenMailboxes.get(5)+1);
-		return waardenMailboxes;
 	}
 
 	@Override
 	public synchronized void add(int index, byte[] value, byte[] tag) throws RemoteException {
-		waardenMailboxes.set(index,waardenMailboxes.get(index)+1);
+		numberOfMessages[index]++;
 		HashMap<String, byte[]> cell = mailbox.get(index);
 		cell.put(Base64.getEncoder().encodeToString(tag), value);
 		System.out.println("added index: " + index + " // tag: " + Base64.getEncoder().encodeToString(tag));
+		for(int i = 0 ; i < numberOfMessages.length ; i++){
+			if(numberOfMessages[i] > 0){
+				System.out.print(i + ": " + numberOfMessages[i] + "\t");
+			}
+		}
+		System.out.println();
 	}
 
 	@Override
@@ -93,7 +86,14 @@ public class BulletinBoardImplementation extends UnicastRemoteObject implements 
 			byte[] hastTag = generateHash(tag);
 			value = cell.remove(Base64.getEncoder().encodeToString(hastTag));
 			if(value != null){
+				numberOfMessages[index]--;
 				System.out.println("get index: " + index + " // tag: " + Base64.getEncoder().encodeToString(hastTag));
+				for(int i = 0 ; i < numberOfMessages.length ; i++){
+					if(numberOfMessages[i] > 0){
+						System.out.print(i + ": " + numberOfMessages[i] + "\t");
+					}
+				}
+				System.out.println();
 			}
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();
@@ -108,5 +108,9 @@ public class BulletinBoardImplementation extends UnicastRemoteObject implements 
 
 	public int getMailboxSize() {
 		return mailboxSize;
+	}
+
+	public List<HashMap<String, byte[]>> getMailbox() {
+		return mailbox;
 	}
 }

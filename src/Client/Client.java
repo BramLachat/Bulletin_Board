@@ -54,7 +54,6 @@ public class Client extends Application {
 	private static BulletinBoard bb;
 	private static String separator = "#§_§#";
 	private static String name;
-	private static Scanner scan;
 
 	private Thread rt;
 
@@ -69,10 +68,6 @@ public class Client extends Application {
 
 	@Override
 	public void start(Stage primaryStage) throws Exception {
-		scan = new Scanner(System.in);
-		System.out.println("Geef gebruikersnaam in:");
-		name = scan.nextLine();
-
 		try{
 			setEncryptionKey();
 			readFromFile();
@@ -366,7 +361,7 @@ public class Client extends Application {
 			}
 			if(value != null){
 				byte[] decryptedValue = decrypt(value, symmetricKeyBA);
-				String[] message = new String(decryptedValue).split("#§_§#");
+				String[] message = new String(decryptedValue).split(separator);
 				indexBA = Integer.parseInt(message[1]);
 				tagBA = Base64.getDecoder().decode(message[2]);
 				symmetricKeyBA = keyDerivationFunction(Base64.getEncoder().encodeToString(symmetricKeyBA.getEncoded()));
@@ -387,7 +382,7 @@ public class Client extends Application {
 		return res;
 	}
 
-	public void printToTextArea(String msg){
+	protected void printToTextArea(String msg){
 		try {
 			TextArea ta = (TextArea) scene.lookup("#receivedMessages");
 			ta.appendText(msg + "\n");
@@ -396,7 +391,7 @@ public class Client extends Application {
 		}
 	}
 
-	public void addContact(String password, String username, String userPassword){
+	protected void addContact(String password, String username, String userPassword){
 		// Hash van userinput nemen? ==> generatedPassword
 		//byte[] generatedPassword = hashFunction(password.getBytes());
 		// new SecureRandom(userinput.getBytes()) ==> nextBytes()? ==> generatedPassword
@@ -432,11 +427,11 @@ public class Client extends Application {
 		contactPerson.setText("Contactpersoon: " + nameBA);
 	}
 
-	public String getNameBA() {
+	protected String getNameBA() {
 		return nameBA;
 	}
 
-	public void writeToFile() throws IOException {
+	protected void writeToFile() throws IOException {
 		JsonFactory factory = new JsonFactory();
 
 		JsonGenerator generator = factory.createGenerator(
@@ -470,7 +465,7 @@ public class Client extends Application {
 		generator.close();
 	}
 
-	private void readFromFile() throws IOException {
+	protected void readFromFile() throws IOException {
 		File file = new File(name + ".json");
 
 		JsonFactory factory = new JsonFactory();
@@ -522,17 +517,17 @@ public class Client extends Application {
 		}
 	}
 
-	public void setEncryptionKey(){
+	protected void setEncryptionKey(){
 		// Create the custom dialog.
-		Dialog<String> dialog = new Dialog<>();
+		Dialog<List<String>> dialog = new Dialog<>();
 		dialog.setTitle("Startup Dialog");
-		dialog.setHeaderText("Voeg een encryptiesleutel toe");
+		dialog.setHeaderText("Geef gebruikersnaam en sleutel in:");
 
 // Set the icon (must be included in the project).
 		dialog.setGraphic(new ImageView(this.getClass().getResource("key.png").toString()));
 
 // Set the button types.
-		ButtonType loginButtonType = new ButtonType("Toevoegen", ButtonBar.ButtonData.OK_DONE);
+		ButtonType loginButtonType = new ButtonType("Inloggen", ButtonBar.ButtonData.OK_DONE);
 		dialog.getDialogPane().getButtonTypes().addAll(loginButtonType, ButtonType.CANCEL);
 
 // Create the username and password labels and fields.
@@ -545,11 +540,15 @@ public class Client extends Application {
 		password.setPromptText("Sleutel");
 		PasswordField password2 = new PasswordField();
 		password2.setPromptText("Bevestig sleutel");
+		TextField username = new TextField();
+		username.setPromptText("Gebruikersnaam");
 
-		grid.add(new Label("Encryptiesleutel:"), 0, 0);
-		grid.add(password, 1, 0);
+		grid.add(new Label("Gebruikersnaam: "), 0, 0);
+		grid.add(username, 1, 0);
 		grid.add(new Label("Encryptiesleutel:"), 0, 1);
-		grid.add(password2, 1, 1);
+		grid.add(password, 1, 1);
+		grid.add(new Label("Encryptiesleutel:"), 0, 2);
+		grid.add(password2, 1, 2);
 
 // Enable/Disable login button depending on whether a username was entered.
 		Node loginButton = dialog.getDialogPane().lookupButton(loginButtonType);
@@ -558,12 +557,22 @@ public class Client extends Application {
 // Do some validation (using the Java 8 lambda syntax).
 		AtomicBoolean passwordEmpty = new AtomicBoolean(true);
 		AtomicBoolean password2Empty = new AtomicBoolean(true);
+		AtomicBoolean usernameEmpty = new AtomicBoolean(true);
 		AtomicReference<String> pwd = new AtomicReference<>();
 		AtomicReference<String> pwd2 = new AtomicReference<>();
+		username.textProperty().addListener((observable, oldValue, newValue) -> {
+			usernameEmpty.set(newValue.trim().isEmpty());
+			if(!passwordEmpty.get() && !password2Empty.get() && pwd.get().equals(pwd2.get()) && !usernameEmpty.get()){
+				loginButton.setDisable(false);
+			}
+			else{
+				loginButton.setDisable(true);
+			}
+		});
 		password.textProperty().addListener((observable, oldValue, newValue) -> {
 			passwordEmpty.set(newValue.trim().isEmpty());
 			pwd.set(newValue);
-			if(!passwordEmpty.get() && !password2Empty.get() && pwd.get().equals(pwd2.get())){
+			if(!passwordEmpty.get() && !password2Empty.get() && pwd.get().equals(pwd2.get()) && !usernameEmpty.get()){
 				loginButton.setDisable(false);
 			}
 			else{
@@ -573,7 +582,7 @@ public class Client extends Application {
 		password2.textProperty().addListener((observable, oldValue, newValue) -> {
 			password2Empty.set(newValue.trim().isEmpty());
 			pwd2.set(newValue);
-			if(!passwordEmpty.get() && !password2Empty.get() && pwd.get().equals(pwd2.get())){
+			if(!passwordEmpty.get() && !password2Empty.get() && pwd.get().equals(pwd2.get()) && !usernameEmpty.get()){
 				loginButton.setDisable(false);
 			}
 			else{
@@ -584,27 +593,30 @@ public class Client extends Application {
 		dialog.getDialogPane().setContent(grid);
 
 // Request focus on the username field by default.
-		Platform.runLater(() -> password.requestFocus());
+		Platform.runLater(() -> username.requestFocus());
 
 // Convert the result to a username-password-pair when the login button is clicked.
 		dialog.setResultConverter(dialogButton -> {
 			if (dialogButton == loginButtonType) {
-				String result = password.getText();
+				List<String> result = new ArrayList<String>();
+				result.add(password.getText());
+				result.add(username.getText());
 				return result;
 			}
 			return null;
 		});
 
-		Optional<String> result = dialog.showAndWait();
+		Optional<List<String>> result = dialog.showAndWait();
 
 		result.ifPresent(usernamePassword -> {
-			System.out.println("Encryptiesleutel=" + usernamePassword);
+			//System.out.println("Encryptiesleutel=" + usernamePassword);
 
-			dataEncryptionKey = keyDerivationFunction(usernamePassword);
+			dataEncryptionKey = keyDerivationFunction(usernamePassword.get(0));
+			name = usernamePassword.get(1);
 		});
 	}
 
-	public byte[] encrypt(byte[] value, SecretKey key) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
+	protected byte[] encrypt(byte[] value, SecretKey key) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
 		Cipher cipher = Cipher.getInstance("AES");
 		//System.out.println("Gebruikte sleutel: " + Base64.getEncoder().encodeToString(symmetricKeyAB.getEncoded()));
 		cipher.init(Cipher.ENCRYPT_MODE, key);
@@ -612,7 +624,7 @@ public class Client extends Application {
 		return valueEncrypted;
 	}
 
-	public byte[] decrypt(byte[] value, SecretKey key) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
+	protected byte[] decrypt(byte[] value, SecretKey key) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
 		Cipher cipher = Cipher.getInstance("AES");
 		//cipher.init(Cipher.DECRYPT_MODE, symmetricKeyBA);
 		cipher.init(Cipher.DECRYPT_MODE, key);
